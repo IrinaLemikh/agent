@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual env
+venv/
+env/
+.venv/
+.python-version
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Secrets
+.env
+.env.*
+credentials/
+service_account*.json
+*.key
+*.pem
+
+# Data & Cache
+cache/
+logs/
+*.log
+core/data/*.parquet
+core/data/*.csv
+core/data/*.pkl
+
+# Config cache
+config/__pycache__/
+config/*.pyc
+
+# Keep folders
+!cache/.gitkeep
+!logs/.gitkeep
+!credentials/.gitkeep

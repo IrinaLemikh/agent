@@ -1,0 +1,17 @@
+.git
+.gitignore
+__pycache__/
+*.pyc
+credentials/
+service_account.json
+cache/
+logs/
+*.log
+core/data/*.parquet
+core/data/*.csv
+.env
+.env.*
+.vscode/
+.idea/
+.DS_Store
+README.md

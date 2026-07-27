@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  agent:
+    build: .
+    container_name: excel-agent
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./core:/app/core               
+      - ./config:/app/config          
+      - ./credentials:/app/credentials:ro  
+      - ./cache:/app/cache            
+      - ./logs:/app/logs              
+    env_file:  
+      - .env   
+    restart: unless-stopped
