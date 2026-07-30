@@ -24,8 +24,8 @@ service_account*.json
 *.pem
 
 # Data & Cache
-cache/
-logs/
+cache/*
+logs/*
 *.log
 core/data/*.parquet
 core/data/*.csv
@@ -39,3 +39,8 @@ config/*.pyc
 !cache/.gitkeep
 !logs/.gitkeep
 !credentials/.gitkeep
+
+# Temporarily track .json files in config, cache and logs
+!config/*.json
+!cache/*.json
+!logs/*.json

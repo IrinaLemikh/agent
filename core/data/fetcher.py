@@ -1,6 +1,46 @@
 """
 Модуль для загрузки и нормализации данных из всех доступных Google Sheets таблиц.
 Читает каждую таблицу, каждый лист, нормализует данные, сохраняет в Parquet и обновляет индекс.
+
+=============================================================================
+ОЖИДАЕМЫЕ ИНТЕРФЕЙСЫ ДРУГИХ ФАЙЛОВ (пока не реализованы/не утверждены)
+=============================================================================
+Этот файл написан "с перспективой" на файлы, которые мы напишем следующими
+шагами. Ниже — контракт, который fetcher.py ожидает от них. Когда будем
+писать эти файлы, важно попасть именно в эти сигнатуры (или вернуться сюда
+и поправить fetcher.py).
+
+1) core/data/categories.py -> класс CategoriesManager
+   - __init__(self, path: str = "config/categories.json")
+   - get_category_names(self) -> List[str]
+       Просто список названий категорий (для fuzzy-сравнения в слое 1).
+   - to_prompt_text(self) -> str
+       Развёрнутый текст со списком категорий + их description/hint,
+       готовый для вставки в промпт LLM (слой 2).
+
+2) core/data/glossary.py -> класс Glossary (уже существует, добавляем 1 метод)
+   - to_prompt_text(self) -> str
+       Весь словарь целиком плоским текстом для вставки в промпт.
+       Существующие lookup()/list_terms()/reload() не трогаем.
+
+3) core/llm/client.py -> класс DeepSeekClient (УЖЕ ПЕРЕПИСАН, актуально)
+   - categorize_and_normalize_batch(
+         self,
+         items: Dict[str, str],        # {"1": "сырой текст 1", "2": "сырой текст 2", ...}
+         category_names: List[str],    # CategoriesManager.get_category_names() — для enum в function calling
+         categories_text: str,         # результат CategoriesManager.to_prompt_text()
+         glossary_text: str,           # результат Glossary.to_prompt_text()
+     ) -> Dict[str, Dict[str, Any]]
+       Возвращает {"1": {"normalized": "...", "tags": ["..."]}, ...}
+       по тем же ключам, что и в items. Формат ответа — dict по номеру
+       пункта, НЕ позиционный список (см. решение про переход с zip()).
+       При исчерпании ретраев бросает LLMCallError (см. core/llm/client.py) —
+       fetcher.py ловит именно этот тип и НЕ кэширует результат при ошибке.
+
+Файл core/data/categories.py всё ещё предстоит написать под контракт выше —
+до этого прогон упадёт на импорте CategoriesManager. client.py и fetcher.py
+между собой уже согласованы.
+=============================================================================
 """
 
 import sys
@@ -22,7 +62,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from core.data.table_discovery import TableDiscovery
 from core.data.indexer import SheetIndex
-from core.llm.client import DeepSeekClient
+from core.llm.client import DeepSeekClient, LLMCallError
+from core.data.glossary import Glossary
+# НОВОЕ: менеджер категорий (файл ещё предстоит написать — см. контракт выше)
+from core.data.categories import CategoriesManager
 from loguru import logger
 
 # Настройка логгера
@@ -45,6 +88,7 @@ TARGET_COLUMNS = [
     "address_normalized",        # нормализованный с городом (по умолчанию Екатеринбург)
     "problem_raw",               # исходное описание проблемы
     "problem_normalized",        # краткое резюме (5-7 слов)
+    "problem_tags",               # НОВОЕ: список категорий (1-3 тега на обращение)
     "assignee",
     "author",
     "comment",
@@ -90,9 +134,18 @@ HEADER_MAP = {
     "автор": "author",
 }
 
-FUZZY_THRESHOLD = 80
+FUZZY_THRESHOLD = 80  # порог для сопоставления ЗАГОЛОВКОВ КОЛОНОК (не путать с категориями)
 LLM_CALLS_PER_SECOND = 3
 MIN_LLM_DELAY = 1.0 / LLM_CALLS_PER_SECOND
+
+# =============================================================================
+# НОВОЕ: константы слоя 1 (детерминированный fuzzy-матч по категориям) и
+# размер батча для слоя 2 именно для проблем (отдельно от client/address,
+# т.к. увеличиваем ради консистентности формулировок problem_normalized)
+# =============================================================================
+CATEGORY_FUZZY_THRESHOLD = 90
+PROBLEM_BATCH_SIZE = 100
+
 
 class Fetcher:
     """
@@ -110,8 +163,18 @@ class Fetcher:
             "rows_processed": 0,
             "rows_skipped": 0,
             "llm_calls": 0,
-            "cache_hits": 0
+            "cache_hits": 0,
+            # НОВОЕ: отдельная метрика — сколько проблем закрыл слой 1 без LLM
+            "layer1_matches": 0,
         }
+
+        # НОВОЕ: словарь и категории — читаются один раз, текст для промпта
+        # кэшируем в атрибутах, чтобы не пересобирать на каждый батч
+        self.glossary = Glossary()
+        self.categories = CategoriesManager()
+        self._glossary_prompt_text = self.glossary.to_prompt_text()
+        self._categories_prompt_text = self.categories.to_prompt_text()
+        self._category_names = self.categories.get_category_names()
 
         # =====================================================================
         # НОВОЕ: флаг очистки кэша (переменная окружения CLEAR_CACHE=true)
@@ -130,8 +193,16 @@ class Fetcher:
         # Перезагружаем пустой кэш
         self.cache = self._load_cache()
 
-    def _load_cache(self) -> Dict[str, Dict[str, str]]:
-        """Загружает кэш маппингов из JSON-файлов."""
+    def _load_cache(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Загружает кэш маппингов из JSON-файлов.
+
+        Формат значений разный по типам:
+        - address / client: {raw_lower: "нормализованная строка"}
+        - problem (НОВОЕ): {raw_lower: {"normalized": "...", "tags": [...]}}
+        Сам метод загрузки/сохранения не зависит от формата значения — json
+        одинаково хранит и строки, и словари, поэтому логика ниже не меняется.
+        """
         cache = {"address": {}, "client": {}, "problem": {}}
         cache_dir = Path("/app/cache")
         cache_dir.mkdir(exist_ok=True)
@@ -181,12 +252,14 @@ class Fetcher:
         return unique
 
     # =========================================================================
-    # ИЗМЕНЕНО: нормализация батча для трёх типов полей
+    # ИЗМЕНЕНО: нормализация батча для client/address (БЕЗ ИЗМЕНЕНИЙ ЛОГИКИ —
+    # для проблем теперь используется отдельный метод, см.
+    # _categorize_and_normalize_problems_batch ниже)
     # =========================================================================
     def _normalize_batch(self, field_type: str, raw_values: set) -> Dict[str, str]:
         """
         Нормализует пачку уникальных значений одного типа с помощью батчевого вызова LLM.
-        field_type: 'client', 'address' или 'problem' (ключ кэша)
+        field_type: 'client' или 'address' (для 'problem' используется отдельный метод).
         raw_values: множество сырых строк
         Возвращает словарь {исходное_значение: нормализованное}
         """
@@ -233,7 +306,7 @@ class Fetcher:
                         # сохраняем в кэш по ключу orig.lower()
                         self.cache[field_type][orig.lower()] = norm
                         logger.debug(f"    ✅ {field_type}: '{orig[:30]}...' -> '{norm[:30]}...'")
-                except Exception as e:
+                except LLMCallError as e:
                     logger.error(f"❌ Ошибка при нормализации батча: {e}")
                     # В случае ошибки возвращаем исходные значения, не сохраняем в кэш
                     for orig in to_normalize:
@@ -253,12 +326,136 @@ class Fetcher:
         return results
 
     # =========================================================================
-    # ИЗМЕНЕНО: быстрая нормализация с кэшем (теперь возвращает нормализованное по сырому)
+    # НОВОЕ: Слой 1 — детерминированный fuzzy-матч сырого текста с названиями
+    # категорий, без обращения к LLM.
+    # =========================================================================
+    def _match_category_by_fuzzy(self, problem_raw: str) -> Optional[str]:
+        """
+        Сравнивает сырой текст обращения с названиями категорий из categories.json.
+        Использует token_sort_ratio (устойчив к перестановке слов/пунктуации),
+        порог CATEGORY_FUZZY_THRESHOLD = 90.
+
+        Возвращает название категории при уверенном совпадении, иначе None.
+        """
+        if not problem_raw or not isinstance(problem_raw, str):
+            return None
+
+        best_match = None
+        best_score = 0
+        for category_name in self._category_names:
+            score = fuzz.token_sort_ratio(problem_raw, category_name)
+            if score > best_score:
+                best_score = score
+                best_match = category_name
+
+        if best_score >= CATEGORY_FUZZY_THRESHOLD:
+            logger.debug(f"    🎯 Слой 1: '{problem_raw[:40]}...' -> '{best_match}' (score={best_score})")
+            return best_match
+
+        return None
+
+    # =========================================================================
+    # НОВОЕ: Слой 2 — LLM-батч только для "трудного остатка" проблем.
+    # Dict-формат запроса/ответа по номеру пункта (не позиционный список).
+    # =========================================================================
+    def _categorize_and_normalize_problems_batch(self, raw_values: set) -> Dict[str, Dict[str, Any]]:
+        """
+        Нормализует и категоризирует пачку уникальных сырых описаний проблем.
+
+        Для каждого значения:
+        1. Сначала пробуем слой 1 (fuzzy-матч по категориям) — без LLM.
+        2. То, что не совпало — уходит в LLM батчами по PROBLEM_BATCH_SIZE,
+           с dict-запросом/ответом по номеру пункта.
+
+        Возвращает {исходное_значение: {"normalized": "...", "tags": [...]}}.
+        """
+        if not raw_values:
+            return {}
+
+        logger.info(f"🦙 Начинаем нормализацию+категоризацию {len(raw_values)} уникальных проблем")
+        results: Dict[str, Dict[str, Any]] = {}
+        remaining = []
+
+        # ---- Слой 1: fuzzy-матч, без LLM ----
+        for val in sorted(raw_values):
+            matched_category = self._match_category_by_fuzzy(val)
+            if matched_category:
+                entry = {"normalized": matched_category, "tags": [matched_category]}
+                results[val] = entry
+                self.cache["problem"][val.lower()] = entry
+                self.stats["layer1_matches"] += 1
+            else:
+                remaining.append(val)
+
+        logger.info(f"✅ Слой 1 закрыл {len(raw_values) - len(remaining)} значений без LLM, "
+                    f"осталось {len(remaining)} для слоя 2")
+
+        self._save_cache()
+
+        if not remaining:
+            return results
+
+        # ---- Слой 2: LLM батчами ----
+        total_batches = (len(remaining) + PROBLEM_BATCH_SIZE - 1) // PROBLEM_BATCH_SIZE
+
+        for batch_idx in range(total_batches):
+            start = batch_idx * PROBLEM_BATCH_SIZE
+            end = min(start + PROBLEM_BATCH_SIZE, len(remaining))
+            batch = remaining[start:end]
+
+            # id -> сырое значение, id локальный для этого вызова (не завязан
+            # на индекс строки/колонки — это и защищает от "схлопывания",
+            # если в таблице вдруг нет какой-то колонки)
+            id_to_value = {str(i + 1): val for i, val in enumerate(batch)}
+
+            try:
+                response = self.llm_client.categorize_and_normalize_batch(
+                    items=id_to_value,
+                    category_names=self._category_names,
+                    categories_text=self._categories_prompt_text,
+                    glossary_text=self._glossary_prompt_text,
+                )
+                self.stats["llm_calls"] += 1
+
+                for item_id, val in id_to_value.items():
+                    if item_id in response:
+                        entry = response[item_id]
+                        # Небольшая защита от кривого ответа модели
+                        normalized = entry.get("normalized") or val
+                        tags = entry.get("tags") or ["Нераспределено"]
+                        entry = {"normalized": normalized, "tags": tags}
+                        results[val] = entry
+                        self.cache["problem"][val.lower()] = entry
+                        logger.debug(f"    ✅ problem: '{val[:30]}...' -> '{normalized[:30]}...' {tags}")
+                    else:
+                        # Модель потеряла пункт — НЕ кэшируем мусор, оставляем
+                        # значение необработанным до следующего запуска.
+                        logger.warning(f"⚠️ LLM не вернула ответ для пункта {item_id} ('{val[:40]}...'), "
+                                       f"пропускаем без кэширования")
+
+            except LLMCallError as e:
+                logger.error(f"❌ Ошибка при категоризации батча проблем: {e}")
+                # Ничего не кэшируем — весь батч останется "трудным остатком"
+                # и будет повторно обработан при следующем запуске.
+
+            if batch_idx < total_batches - 1:
+                time.sleep(MIN_LLM_DELAY)
+
+            self._save_cache()
+            logger.debug(f"💾 Кэш сохранён после батча проблем {batch_idx+1}/{total_batches}")
+
+        logger.info(f"✅ Нормализация+категоризация проблем завершена. "
+                    f"Слой 1: {self.stats['layer1_matches']}, вызовов LLM: {self.stats['llm_calls']}")
+        return results
+
+    # =========================================================================
+    # ИЗМЕНЕНО: быстрая нормализация с кэшем для client/address (без изменений)
     # =========================================================================
     def _normalize_with_cache(self, raw_value: str, field_type: str) -> str:
         """
         Быстрая нормализация с использованием только кэша (без вызова LLM).
-        field_type: 'client', 'address', 'problem'
+        field_type: 'client' или 'address' (для 'problem' — см.
+        _normalize_with_cache_problem ниже).
         Возвращает нормализованную строку (если нет в кэше — логируем и возвращаем сырую)
         """
         if not raw_value or not isinstance(raw_value, str):
@@ -275,10 +472,74 @@ class Fetcher:
             # Это маловероятно, но на всякий случай делаем одиночный вызов.
             self.stats["llm_calls"] += 1
             logger.warning(f"⚠️ Значение '{raw_value}' не найдено в кэше, вызываем LLM на лету")
-            normalized = self.llm_client.normalize(raw_value, field_type)
-            self.cache[field_type][key] = normalized
-            time.sleep(MIN_LLM_DELAY)
-            return normalized
+            try:
+                normalized = self.llm_client.normalize(raw_value, field_type)
+                self.cache[field_type][key] = normalized
+                time.sleep(MIN_LLM_DELAY)
+                return normalized
+            except LLMCallError as e:
+                # Не кэшируем и не роняем обработку всего листа из-за одного
+                # значения — строка получит сырой текст вместо нормализованного,
+                # а на следующем прогоне (значения нет в кэше) попытка повторится.
+                logger.error(f"❌ Ошибка при одиночной нормализации '{raw_value[:40]}...': {e}")
+                return raw_value
+
+    # =========================================================================
+    # НОВОЕ: быстрая нормализация+категоризация проблемы с использованием
+    # только кэша (без вызова LLM). Отдельный метод, т.к. возвращает dict,
+    # а не строку.
+    # =========================================================================
+    def _normalize_with_cache_problem(self, raw_value: str) -> Dict[str, Any]:
+        """
+        Возвращает {"normalized": "...", "tags": [...]} для сырого описания
+        проблемы, используя кэш. Если значения нет в кэше (редкий случай,
+        например кэш почистили в процессе работы) — прогоняет его через
+        слой 1, а при неудаче — одиночным вызовом LLM (батч из одного пункта).
+        """
+        if not raw_value or not isinstance(raw_value, str):
+            return {"normalized": "", "tags": []}
+
+        key = raw_value.strip().lower()
+        cached = self.cache["problem"].get(key)
+
+        if cached:
+            self.stats["cache_hits"] += 1
+            return cached
+
+        logger.warning(f"⚠️ Проблема '{raw_value}' не найдена в кэше, обрабатываем на лету")
+
+        # Пробуем слой 1 даже "на лету"
+        matched_category = self._match_category_by_fuzzy(raw_value)
+        if matched_category:
+            entry = {"normalized": matched_category, "tags": [matched_category]}
+            self.cache["problem"][key] = entry
+            self.stats["layer1_matches"] += 1
+            return entry
+
+        # Слой 2 — одиночный вызов (батч из одного пункта)
+        try:
+            response = self.llm_client.categorize_and_normalize_batch(
+                items={"1": raw_value},
+                category_names=self._category_names,
+                categories_text=self._categories_prompt_text,
+                glossary_text=self._glossary_prompt_text,
+            )
+            self.stats["llm_calls"] += 1
+            entry_raw = response.get("1")
+            if entry_raw:
+                entry = {
+                    "normalized": entry_raw.get("normalized") or raw_value,
+                    "tags": entry_raw.get("tags") or ["Нераспределено"],
+                }
+                self.cache["problem"][key] = entry
+                time.sleep(MIN_LLM_DELAY)
+                return entry
+            else:
+                logger.warning(f"⚠️ LLM не вернула ответ для одиночной проблемы '{raw_value[:40]}...'")
+                return {"normalized": raw_value, "tags": ["Нераспределено"]}
+        except LLMCallError as e:
+            logger.error(f"❌ Ошибка при одиночной категоризации проблемы: {e}")
+            return {"normalized": raw_value, "tags": ["Нераспределено"]}
 
     def _detect_headers(self, rows: List[List[str]]) -> Tuple[bool, Optional[List[str]]]:
         """
@@ -443,7 +704,12 @@ class Fetcher:
 
                 if values_to_normalize:
                     logger.info(f"📦 Для поля '{field_type}' нужно нормализовать {len(values_to_normalize)} новых значений")
-                    self._normalize_batch(field_type, values_to_normalize)
+                    # ИЗМЕНЕНО: для проблем — отдельный метод (слой 1 + слой 2 с dict-форматом),
+                    # для client/address — прежняя логика без изменений
+                    if field_type == "problem":
+                        self._categorize_and_normalize_problems_batch(values_to_normalize)
+                    else:
+                        self._normalize_batch(field_type, values_to_normalize)
                 else:
                     logger.info(f"✅ Все значения поля '{field_type}' уже есть в кэше")
 
@@ -474,7 +740,18 @@ class Fetcher:
                     record[target] = parsed if parsed else value
                 elif target == "ticket_id":
                     record[target] = self._extract_ticket_id(value)
-                elif target in ("client_raw", "address_raw", "problem_raw"):
+                elif target == "problem_raw":
+                    # НОВОЕ: отдельная ветка для проблем — кэш возвращает dict
+                    # {"normalized": ..., "tags": [...]}, а не строку
+                    record[target] = value.strip() if isinstance(value, str) else value
+                    if value and isinstance(value, str):
+                        result = self._normalize_with_cache_problem(value)
+                        record["problem_normalized"] = result.get("normalized", "")
+                        record["problem_tags"] = result.get("tags", [])
+                    else:
+                        record["problem_normalized"] = ""
+                        record["problem_tags"] = []
+                elif target in ("client_raw", "address_raw"):
                     # Сохраняем сырое значение
                     record[target] = value.strip() if isinstance(value, str) else value
 
@@ -485,9 +762,6 @@ class Fetcher:
                     elif target == "address_raw":
                         norm_field = "address_normalized"
                         cache_type = "address"
-                    elif target == "problem_raw":
-                        norm_field = "problem_normalized"
-                        cache_type = "problem"
                     else:
                         continue
 
@@ -607,6 +881,7 @@ class Fetcher:
             logger.info(f"  • Пропущено пустых строк: {self.stats['rows_skipped']}")
             logger.info(f"  • Вызовов LLM: {self.stats['llm_calls']}")
             logger.info(f"  • Попаданий в кэш: {self.stats['cache_hits']}")
+            logger.info(f"  • Слой 1 (без LLM) для проблем: {self.stats['layer1_matches']}")
             logger.info(f"  • Всего записей сохранено: {len(self.all_records)}")
         else:
             logger.warning("⚠️ Нет данных для сохранения")
