@@ -1,6 +1,32 @@
 """
-Инструменты для анализа проблем (problem_normalized).
-Используют LLM для семантической группировки и поиска.
+Инструменты для анализа проблем (problem_normalized / problem_tags).
+
+=============================================================================
+ИЗМЕНЕНО: get_top_problems() больше НЕ вызывает LLM для группировки.
+=============================================================================
+Раньше группировка была нужна, потому что problem_normalized — это просто
+сырые нормализованные строки без структуры, и единственный способ понять,
+что "отпал сканер" и "сканер не работает" — про одно и то же, был семантический
+LLM-вызов (TASK_GROUP_PROBLEMS).
+
+Теперь каждая проблема уже размечена тегами категорий (problem_tags) на
+этапе нормализации в fetcher.py (слой 1 fuzzy + слой 2 LLM с function
+calling, см. core/data/fetcher.py). Категория — это и есть группа, поэтому
+топ проблем можно посчитать простым value_counts() по тегам, без LLM,
+без риска, что модель вернёт невалидный JSON, и без затрат на токены.
+
+ВАЖНО — многотегово: одно обращение может иметь 1-3 тега (problem_tags —
+список). Значит, сумма счётчиков по всем категориям МОЖЕТ ПРЕВЫШАТЬ
+количество обращений — одно обращение с двумя тегами учитывается в обеих
+категориях. Это осознанное решение (см. чат): точнее отражает
+многогранные проблемы (например, "обновление Фронтол и прошивка ККТ"
+относится и к Фронтолу, и к ККТ), но означает, что "Топ проблем" — это
+не разбиение на непересекающиеся группы, а скорее срез "сколько обращений
+затронули эту категорию".
+
+TASK_GROUP_PROBLEMS в prompts.py удалён (ты решила снести легаси) — этот
+файл больше не импортирует и не использует его.
+=============================================================================
 """
 
 import json
@@ -9,7 +35,7 @@ from typing import Dict, Any, Optional, List
 from loguru import logger
 from .utils import get_preview_columns, format_answer, filter_by_date
 from core.llm.client import DeepSeekClient
-from core.llm.prompts import TASK_GROUP_PROBLEMS, TASK_SELECT_PROBLEMS
+from core.llm.prompts import TASK_SELECT_PROBLEMS
 
 
 def _parse_llm_json(response_text: str) -> Optional[Any]:
@@ -34,6 +60,12 @@ def _filter_by_problem_query(df: pd.DataFrame,
     """
     Возвращает DataFrame строк, чьи problem_normalized семантически соответствуют запросу.
     Использует LLM для выбора подходящих формулировок из уникальных значений.
+
+    ПРИМЕЧАНИЕ: этот метод не тронут в этой итерации — он используется
+    search_problem/search_problem_by_date, где полнотекстовый семантический
+    поиск по формулировке всё ещё осмыслен (запрос пользователя произвольный,
+    не обязательно совпадает с названием категории). Обсудим отдельно,
+    стоит ли тут тоже задействовать problem_tags.
     """
     unique_problems = df['problem_normalized'].dropna().unique().tolist()
     if not unique_problems:
@@ -65,97 +97,101 @@ def _filter_by_problem_query(df: pd.DataFrame,
         return df[df['problem_normalized'].isin(selected)].copy()
 
 
+# =============================================================================
+# ПЕРЕПИСАНО: get_top_problems теперь считает по problem_tags, без LLM.
+# =============================================================================
 def get_top_problems(df: pd.DataFrame,
                      n: int = 20,
                      min_tickets: int = 2,
                      llm: Optional[DeepSeekClient] = None) -> Dict[str, Any]:
     """
-    Топ N проблем (сгруппированных семантически) ИЛИ все проблемы > min_tickets.
-    Использует LLM для группировки похожих формулировок из problem_normalized.
+    Топ N категорий проблем ИЛИ все категории с количеством > min_tickets.
 
-    Если n > 0: топ-N проблем (по умолчанию 20).
-    Если n = 0: все проблемы с количеством > min_tickets (по умолчанию 2).
+    Считает напрямую по problem_tags (категории, присвоенные на этапе
+    нормализации в fetcher.py) — без обращения к LLM. Параметр llm оставлен
+    в сигнатуре только для обратной совместимости с вызывающим кодом
+    (например, tool_selector может передавать его по привычке) — фактически
+    не используется и функция больше не требует его наличия.
+
+    Если n > 0: топ-N категорий (по умолчанию 20).
+    Если n = 0: все категории с количеством > min_tickets (по умолчанию 2).
+
+    ВАЖНО: обращение может иметь 1-3 тега, поэтому сумма количеств по всем
+    категориям может превышать общее число обращений — одно обращение
+    с несколькими тегами учитывается в каждой из своих категорий.
     """
-    if df.empty or 'problem_normalized' not in df.columns:
+    if df.empty or 'problem_tags' not in df.columns:
         return format_answer(summary="Нет данных о проблемах.", answer="Нет данных о проблемах.")
-    if llm is None:
-        return format_answer(summary="LLM недоступен.", answer="Ошибка: LLM не инициализирован.")
 
-    counts = df['problem_normalized'].value_counts().reset_index()
-    counts.columns = ['problem', 'count']
-    if counts.empty:
-        return format_answer(summary="Нет проблем.", answer="Нет проблем для анализа.")
+    # Оставляем только строки, где problem_tags — непустой список.
+    # (пустой список — например, problem_raw было пустым при загрузке)
+    # ВАЖНО (баг-фикс): изначально здесь была проверка isinstance(x, list),
+    # которая работает для списков в памяти сразу после fetcher.py, НО НЕ
+    # работает после round-trip через parquet — pandas/pyarrow при чтении
+    # list-колонки обратно возвращает значения как numpy.ndarray, а не как
+    # Python list. isinstance(ndarray, list) всегда False, из-за чего ВСЕ
+    # строки ошибочно считались "без тегов", хотя данные были полностью
+    # корректны (подтверждено диагностикой на реальном датасете: 17298 из
+    # 17298 строк содержали теги, просто как ndarray). hasattr(x, '__len__')
+    # одинаково работает и для list, и для ndarray, а None/NaN его не имеют
+    # и корректно отфильтровываются.
+    has_tags_mask = df['problem_tags'].apply(lambda x: hasattr(x, '__len__') and len(x) > 0)
+    tagged_df = df[has_tags_mask]
 
-    items_list = [f"{row['problem']} ({row['count']})" for _, row in counts.iterrows()]
-    numbered_items = [f"{i+1}. {item}" for i, item in enumerate(items_list)]
-    items_text = "\n".join(numbered_items)
-
-    prompt = TASK_GROUP_PROBLEMS.format(items_text=items_text)
-    
-    response = llm.ask(user_prompt=prompt, system_role="grouper", temperature=0.1)
-    
-    parsed = _parse_llm_json(response)
-
-    if parsed is None:
-        logger.warning("LLM не вернул валидный JSON, возвращаем несгруппированный топ")
-        if n > 0:
-            top = counts.head(n)
-        else:
-            top = counts[counts['count'] > min_tickets]
-        if top.empty:
-            return format_answer(summary="Проблем не найдено.", answer="Проблем не найдено.")
-        top.insert(0, '№', range(1, len(top) + 1))
-        answer_lines = [f"{row['№']}. {row['problem']} — {row['count']} раз(а)" for _, row in top.iterrows()]
+    if tagged_df.empty:
         return format_answer(
-            summary=f"Топ проблем (без группировки): {top.iloc[0]['problem']}...",
-            answer="ВНИМАНИЕ! Не удалось сгруппировать проблемы через LLM. Точность ответа низкая. Попробуйте сузить дипапзон данных для поиска (например: запросить топ 5, вместо топ 10 или уменьшить кол-во листов).\n" + "\n".join(answer_lines),
-            table=top.rename(columns={'problem': 'Проблема', 'count': 'Количество'})
+            summary="Нет обращений с присвоенными категориями.",
+            answer="Нет обращений с присвоенными категориями (problem_tags пуст у всех строк)."
         )
 
-    groups = []
-    for item in parsed:
-        # Достаём ID и подтягиваем текст сами
-        example_ids = item.get('example_ids', [])
-        # items_list имеет вид ["проблема (кол-во)", ...], вытаскиваем текст до скобки
-        example_texts = []
-        for eid in example_ids:
-            try:
-                eid = int(eid)
-            except (ValueError, TypeError):
-                continue
-            
-            if 1 <= eid <= len(items_list):
-                # Берём текст проблемы (всё до последней скобки с числом)
-                full_text = items_list[eid - 1]
-                # "Не работает касса (42)" -> "Не работает касса"
-                problem_text = full_text.rsplit(' (', 1)[0]
-                example_texts.append(problem_text)
+    # explode: одно обращение с 2-3 тегами превращается в 2-3 строки —
+    # ровно то, что нам и нужно для подсчёта "сколько обращений затронули
+    # каждую категорию" (см. предупреждение о многотегово в шапке файла)
+    exploded = tagged_df.explode('problem_tags')
 
-        groups.append({
-            'Группа': item.get('group', ''),
-            'Количество': item.get('total_count', 0),
-            'Примеры': ', '.join(example_texts) if example_texts else '—'
-        })
+    counts = exploded['problem_tags'].value_counts().reset_index()
+    counts.columns = ['category', 'count']
 
-    result_df = pd.DataFrame(groups)
-    if result_df.empty:
-        return format_answer(summary="Проблемы не найдены.", answer="Проблемы не найдены.")
+    if counts.empty:
+        return format_answer(summary="Категорий не найдено.", answer="Категорий не найдено.")
 
     if n > 0:
-        result_df = result_df.head(n)
-        mode_desc = f"Топ {min(n, len(result_df))} проблем"
+        top = counts.head(n)
+        mode_desc = f"Топ {min(n, len(top))} категорий проблем"
     else:
-        result_df = result_df[result_df['Количество'] > min_tickets]
-        mode_desc = f"Проблемы с более чем {min_tickets} обращениями"
+        top = counts[counts['count'] > min_tickets]
+        mode_desc = f"Категории проблем с более чем {min_tickets} обращениями"
 
-    if result_df.empty:
+    if top.empty:
         return format_answer(summary=f"{mode_desc}: не найдено.", answer=f"{mode_desc}: не найдено.")
 
+    # Примеры для каждой категории — берём несколько уникальных
+    # нормализованных формулировок, которые реально попали в эту категорию
+    rows = []
+    for _, row in top.iterrows():
+        category = row['category']
+        count = row['count']
+        examples = (
+            exploded.loc[exploded['problem_tags'] == category, 'problem_normalized']
+            .dropna()
+            .unique()[:3]
+            .tolist()
+        )
+        rows.append({
+            'Категория': category,
+            'Количество': count,
+            'Примеры': ', '.join(examples) if examples else '—'
+        })
+
+    result_df = pd.DataFrame(rows)
     result_df.insert(0, '№', range(1, len(result_df) + 1))
-    answer_lines = [f"{row['№']}. {row['Группа']} — {row['Количество']} обр. (примеры: {row['Примеры']})"
-                    for _, row in result_df.iterrows()]
+
+    answer_lines = [
+        f"{row['№']}. {row['Категория']} — {row['Количество']} обр. (примеры: {row['Примеры']})"
+        for _, row in result_df.iterrows()
+    ]
     answer = f"{mode_desc}:\n" + "\n".join(answer_lines)
-    summary = f"{mode_desc}: {result_df.iloc[0]['Группа']} ({result_df.iloc[0]['Количество']} обр.)..."
+    summary = f"{mode_desc}: {result_df.iloc[0]['Категория']} ({result_df.iloc[0]['Количество']} обр.)..."
 
     return format_answer(
         summary=summary,
@@ -170,6 +206,8 @@ def search_problem(df: pd.DataFrame,
     """
     Поиск ВСЕХ обращений, семантически связанных с problem_query.
     LLM выбирает из уникальных значений problem_normalized те, которые относятся к запросу.
+
+    ПРИМЕЧАНИЕ: не тронут в этой итерации, см. комментарий у _filter_by_problem_query.
     """
     if df.empty or 'problem_normalized' not in df.columns:
         return format_answer(summary="Нет данных о проблемах.", answer="Нет данных о проблемах.")
@@ -215,6 +253,8 @@ def search_problem_by_date(df: pd.DataFrame,
     """
     Поиск по проблеме + фильтр по датам.
     Сначала ищем проблему через LLM, потом применяем дата-фильтр.
+
+    ПРИМЕЧАНИЕ: не тронут в этой итерации, см. комментарий у _filter_by_problem_query.
     """
     if llm is None:
         return format_answer(summary="LLM недоступен.", answer="Ошибка: LLM не инициализирован.")

@@ -22,6 +22,31 @@
    пояснения категорий — обычным текстом в промпте. Ответ — dict по номеру
    пункта (id из items), а не позиционный список.
 
+4) НОВОЕ: normalize_batch_dict() для client/address — тот же паттерн
+   dict-по-id + function calling, что и у categorize_and_normalize_batch(),
+   только без enum (просто произвольная нормализованная строка на id).
+   Заменяет собой старый normalize_batch() (построчный парсинг ответа +
+   позиционный zip() с исходным списком) — легаси-метод удалён полностью,
+   не оставлен даже закомментированным (решение принято в чате: сносим).
+   normalize() (одиночная нормализация "на лету", когда значения нет в
+   кэше) переписан как самостоятельный метод — больше не вызывает
+   normalize_batch внутри себя, т.к. того метода больше не существует.
+
+5) БАГ-ФИКС ПО ИТОГАМ СМОУК-ТЕСТА: модель по умолчанию работает в
+   "thinking mode" (reasoning), а эта модель у DeepSeek запрещает
+   принудительный tool_choice (400: "Thinking mode does not support this
+   tool_choice"). Финальное решение — не переход на tool_choice="auto"
+   (промежуточный вариант), а явное отключение thinking через
+   {"thinking": {"type": "disabled"}} в payload (параметр disable_thinking
+   у _call_api, включён для normalize_batch_dict и
+   categorize_and_normalize_batch). Это чинит сразу два эффекта:
+   (а) снова разрешает форсировать конкретную функцию через tool_choice —
+       надёжнее, чем "auto", модель гарантированно её вызовет;
+   (б) возвращает реальный эффект от temperature=0.0 — согласно
+       документации DeepSeek, thinking mode молча ИГНОРИРУЕТ temperature
+       (не бросает ошибку, просто не применяет), так что раньше наша
+       "детерминированная" категоризация температуру фактически не имела.
+
 =============================================================================
 ОЖИДАЕМЫЕ КЛЮЧИ В prompts.py (файл сам ещё не переписан, это контракт для
 следующего шага)
@@ -57,7 +82,7 @@ class LLMCallError(Exception):
 # Имя функции-инструмента для категоризации проблем (function calling)
 CATEGORIZATION_TOOL_NAME = "submit_categorization"
 
-# Имя функции-инструмента для батчевой нормализации client/address
+# Имя функции-инструмента для нормализации client/address (function calling)
 NORMALIZATION_TOOL_NAME = "submit_normalization"
 
 
@@ -83,10 +108,11 @@ class DeepSeekClient:
         self,
         messages: List[Dict[str, str]],
         tools: Optional[List[Dict[str, Any]]] = None,
-        tool_choice: Optional[Dict[str, Any]] = None,
+        tool_choice: Optional[Any] = None,
         temperature: float = 0.1,
         max_retries: int = 2,
         base_delay: float = 1.0,
+        disable_thinking: bool = False,
     ) -> Dict[str, Any]:
         """
         Отправляет запрос к DeepSeek, возвращает распарсенный JSON ответа
@@ -94,6 +120,14 @@ class DeepSeekClient:
 
         При исчерпании ретраев или невозможности получить валидный JSON
         бросает LLMCallError — НИКОГДА не возвращает "суррогатный" ответ.
+
+        disable_thinking: если True, добавляет {"thinking": {"type": "disabled"}}
+        в payload. НУЖНО для двух вещей сразу (см. документацию DeepSeek):
+        1) в thinking mode нельзя принудительно указать конкретную функцию
+           через tool_choice — только с отключённым thinking это работает;
+        2) в thinking mode параметр temperature молча игнорируется — то есть
+           наш temperature=0.0 для категоризации/нормализации реально
+           применяется только при disable_thinking=True.
         """
         payload = {
             "model": "deepseek-v4-flash",
@@ -105,6 +139,8 @@ class DeepSeekClient:
             payload["tools"] = tools
         if tool_choice:
             payload["tool_choice"] = tool_choice
+        if disable_thinking:
+            payload["thinking"] = {"type": "disabled"}
 
         last_error: Optional[Exception] = None
 
@@ -128,7 +164,18 @@ class DeepSeekClient:
 
             except (requests.exceptions.RequestException, ValueError, json.JSONDecodeError) as e:
                 last_error = e
-                logger.warning(f"Попытка {attempt + 1}/{max_retries + 1} не удалась: {e}")
+                # НОВОЕ: логируем тело ответа API, если оно есть — raise_for_status()
+                # сам по себе даёт только код статуса, а не причину от DeepSeek
+                # (например, какой именно параметр в tools/tool_choice не понравился)
+                error_body = None
+                response_obj = getattr(e, "response", None)
+                if response_obj is not None:
+                    try:
+                        error_body = response_obj.text
+                    except Exception:
+                        error_body = None
+                body_suffix = f" | Тело ответа API: {error_body}" if error_body else ""
+                logger.warning(f"Попытка {attempt + 1}/{max_retries + 1} не удалась: {e}{body_suffix}")
                 if attempt < max_retries:
                     sleep_time = base_delay * (2 ** attempt)
                     logger.info(f"Повтор через {sleep_time:.1f}с...")
@@ -197,15 +244,134 @@ class DeepSeekClient:
         logger.debug(f"✅ Ответ получен (длина {len(answer)})")
         return answer
 
+    def _build_normalization_tool_schema(self) -> List[Dict[str, Any]]:
+        """
+        JSON-схема инструмента для нормализации client/address через
+        function calling. В отличие от категоризации, здесь нет enum —
+        просто произвольная нормализованная строка на каждый id.
+        """
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": NORMALIZATION_TOOL_NAME,
+                    "description": (
+                        "Верни нормализованную формулировку для каждого значения "
+                        "из пронумерованного списка. Ключи в 'results' должны в "
+                        "точности совпадать с номерами из списка."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "results": {
+                                "type": "object",
+                                "description": (
+                                    "Ключ — номер пункта из списка (строкой, например "
+                                    "'1', '2'). Значение — нормализованная строка для этого пункта."
+                                ),
+                                "additionalProperties": {"type": "string"}
+                            }
+                        },
+                        "required": ["results"]
+                    }
+                }
+            }
+        ]
+
+    def normalize_batch_dict(self, items: Dict[str, str], field_type: str) -> Dict[str, str]:
+        """
+        Нормализует пачку значений одного поля (client / address) через
+        function calling, dict-по-id — тот же паттерн, что и
+        categorize_and_normalize_batch(). Заменяет собой прежний
+        normalize_batch() с построчным парсингом и позиционным zip()
+        (тот метод удалён — легаси не осталось, см. решение в чате).
+
+        Args:
+            items: {"1": "сырой текст 1", "2": "сырой текст 2", ...} — id
+                локальный для этого вызова, задаётся вызывающим кодом (fetcher).
+            field_type: 'address' или 'client'
+                (для 'problem' используется categorize_and_normalize_batch —
+                там нужна ещё и категоризация, а не только нормализация).
+
+        Returns:
+            {"1": "нормализованная строка", ...} — по тем же ключам, что в
+            items. Если модель не вернула ответ для какого-то id, этот ключ
+            в результате отсутствует (вызывающий код — fetcher._normalize_batch —
+            логирует это и НЕ кэширует значение).
+
+        Raises:
+            LLMCallError: ретраи исчерпаны, модель не вызвала инструмент,
+            или аргументы инструмента не парсятся как JSON. Вызывающий код
+            обязан поймать эту ошибку и не кэшировать результат для всего
+            батча.
+        """
+        if not items:
+            return {}
+
+        task_name = f"normalize_{field_type}"
+        task_prompt = TASK_PROMPTS.get(task_name)
+        if not task_prompt:
+            raise ValueError(f"Неизвестный тип поля '{field_type}'. Допустимые: address, client")
+
+        numbered = "\n".join(f"{item_id}. {text}" for item_id, text in items.items())
+        user_prompt = task_prompt.format(texts=numbered)
+
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPTS.get("normalizer", "")},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        tools = self._build_normalization_tool_schema()
+        # ИСПРАВЛЕНО по итогам смоук-теста: изначальная проблема была не в
+        # tool_choice как таковом, а в том, что модель по умолчанию работает
+        # в thinking mode, а она запрещает принудительный выбор функции.
+        # Отключаем thinking (disable_thinking=True ниже) — это же заодно
+        # чинит и temperature=0.0, которая в thinking mode молча
+        # игнорировалась (см. документацию DeepSeek). С отключённым thinking
+        # можно снова форсировать конкретную функцию — это надёжнее "auto",
+        # модель гарантированно её вызовет.
+        tool_choice = {"type": "function", "function": {"name": NORMALIZATION_TOOL_NAME}}
+
+        logger.debug(f"🦙 Нормализация батча из {len(items)} значений ('{field_type}')...")
+
+        result = self._call_api(
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            temperature=0.0,
+            disable_thinking=True,
+        )
+
+        try:
+            message = result["choices"][0]["message"]
+            tool_calls = message.get("tool_calls")
+            if not tool_calls:
+                raise ValueError("Модель не вызвала инструмент submit_normalization")
+            arguments_raw = tool_calls[0]["function"]["arguments"]
+            arguments = json.loads(arguments_raw)
+            results = arguments.get("results")
+            if not isinstance(results, dict):
+                raise ValueError(f"Поле 'results' отсутствует или имеет неверный тип: {arguments}")
+        except (KeyError, IndexError, ValueError, json.JSONDecodeError) as e:
+            raise LLMCallError(f"Не удалось извлечь результат нормализации из ответа API: {e}")
+
+        cleaned_results: Dict[str, str] = {}
+        for item_id, value in results.items():
+            if isinstance(value, str) and value.strip():
+                cleaned_results[item_id] = value.strip()
+            else:
+                logger.warning(f"⚠️ Некорректное значение для пункта {item_id}, пропускаем: {value!r}")
+
+        logger.debug(f"✅ Нормализация батча завершена, обработано {len(cleaned_results)}/{len(items)}")
+        return cleaned_results
+
     def normalize(self, text: str, field_type: str) -> str:
         """
-        Одиночная нормализация ОДНОГО значения (client / address). Используется
-        только для редкого live-фоллбэка, когда значения не нашлось в кэше
-        (см. fetcher._normalize_with_cache) — самостоятельный метод, не
-        завязан на батчевый normalize_batch_dict(). Для одного элемента нет
-        риска рассинхрона порядка/количества, поэтому обычный текстовый
-        промпт без function calling — оправданно проще, чем городить dict
-        ради единственного ключа.
+        Одиночная нормализация одного значения — самостоятельный метод, НЕ
+        зависит от normalize_batch_dict (используется как редкий
+        live-фоллбэк в fetcher._normalize_with_cache, когда значения не
+        нашлось в кэше). Обычный текстовый промпт без function calling —
+        для одного значения проблема потери позиции неактуальна.
 
         Raises:
             LLMCallError: пробрасывается из ask() при исчерпании ретраев —
@@ -224,121 +390,10 @@ class DeepSeekClient:
             temperature=0.0
         )
 
-        # Берём первую строку ответа, убираем возможный ведущий номер/точку
-        first_line = response.strip().split('\n')[0]
-        cleaned = first_line.lstrip('0123456789. ').strip()
+        # Одна строка ответа — убираем возможную нумерацию модели
+        first_line = response.strip().split("\n")[0]
+        cleaned = first_line.lstrip("0123456789. ").strip()
         return cleaned if cleaned else text
-
-    # =========================================================================
-    # НОВОЕ: батчевая нормализация client/address через function calling,
-    # dict-ответ по номеру пункта — тот же паттерн, что и
-    # categorize_and_normalize_batch() для проблем, просто без тегов/категорий.
-    # Заменяет собой старый текстовый normalize_batch() (построчный парсинг +
-    # позиционный zip() — источник рассинхрона при сбое длины ответа).
-    # =========================================================================
-    def _build_normalization_tool_schema(self) -> List[Dict[str, Any]]:
-        return [
-            {
-                "type": "function",
-                "function": {
-                    "name": NORMALIZATION_TOOL_NAME,
-                    "description": (
-                        "Верни нормализованную формулировку для каждого значения "
-                        "из пронумерованного списка. Ключи в 'results' должны в "
-                        "точности совпадать с номерами из списка."
-                    ),
-                    "parameters": {
-                        "type": "object",
-                        "properties": {
-                            "results": {
-                                "type": "object",
-                                "description": (
-                                    "Ключ — номер пункта из списка (строкой, например "
-                                    "'1', '2'). Значение — нормализованная строка."
-                                ),
-                                "additionalProperties": {"type": "string"}
-                            }
-                        },
-                        "required": ["results"]
-                    }
-                }
-            }
-        ]
-
-    def normalize_batch_dict(self, items: Dict[str, str], field_type: str) -> Dict[str, str]:
-        """
-        Нормализует пачку значений одного поля (client/address) за один вызов
-        LLM. Ответ — dict по номеру пункта (id из items), НЕ позиционный
-        список — устойчиво к тому, что модель потеряет/добавит пункт.
-
-        Args:
-            items: {"1": "сырой текст 1", "2": "сырой текст 2", ...} — id
-                локальный для этого вызова, задаётся вызывающим кодом (fetcher).
-            field_type: 'address' или 'client'.
-
-        Returns:
-            {"1": "нормализованная строка", ...} — только те id, для которых
-            модель вернула результат. Отсутствие id в ответе — не исключение,
-            вызывающий код (fetcher._normalize_batch) сам решает, что делать
-            (не кэшировать, оставить на следующий запуск).
-
-        Raises:
-            LLMCallError: ретраи исчерпаны, модель не вызвала инструмент,
-            или аргументы не парсятся как JSON.
-        """
-        if not items:
-            return {}
-
-        task_name = f"normalize_{field_type}"
-        task_prompt = TASK_PROMPTS.get(task_name)
-        if not task_prompt:
-            raise ValueError(f"Неизвестный тип поля '{field_type}'. Допустимые: address, client")
-
-        numbered = "\n".join(f"{item_id}. {text}" for item_id, text in items.items())
-        user_prompt = task_prompt.format(texts=numbered)
-        user_prompt += (
-            f"\n\nДля каждого номера верни нормализованное значение через "
-            f"вызов инструмента {NORMALIZATION_TOOL_NAME}."
-        )
-
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPTS.get("normalizer", "")},
-            {"role": "user", "content": user_prompt},
-        ]
-
-        tools = self._build_normalization_tool_schema()
-        tool_choice = {"type": "function", "function": {"name": NORMALIZATION_TOOL_NAME}}
-
-        logger.debug(f"🦙 Нормализация батча из {len(items)} значений поля '{field_type}'...")
-
-        result = self._call_api(
-            messages=messages,
-            tools=tools,
-            tool_choice=tool_choice,
-            temperature=0.0,
-        )
-
-        try:
-            message = result["choices"][0]["message"]
-            tool_calls = message.get("tool_calls")
-            if not tool_calls:
-                raise ValueError(f"Модель не вызвала инструмент {NORMALIZATION_TOOL_NAME}")
-            arguments_raw = tool_calls[0]["function"]["arguments"]
-            arguments = json.loads(arguments_raw)
-            results = arguments.get("results")
-            if not isinstance(results, dict):
-                raise ValueError(f"Поле 'results' отсутствует или имеет неверный тип: {arguments}")
-        except (KeyError, IndexError, ValueError, json.JSONDecodeError) as e:
-            raise LLMCallError(f"Не удалось извлечь результат нормализации из ответа API: {e}")
-
-        cleaned_results = {
-            item_id: value.strip()
-            for item_id, value in results.items()
-            if isinstance(value, str) and value.strip()
-        }
-
-        logger.debug(f"✅ Нормализация батча завершена, обработано {len(cleaned_results)}/{len(items)}")
-        return cleaned_results
 
     # =========================================================================
     # НОВОЕ: слой 2 для проблем — нормализация + категоризация через
@@ -452,6 +507,9 @@ class DeepSeekClient:
         ]
 
         tools = self._build_categorization_tool_schema(category_names)
+        # См. подробный комментарий в normalize_batch_dict — отключаем
+        # thinking (disable_thinking=True ниже), после чего принудительный
+        # tool_choice снова работает и temperature=0.0 реально применяется.
         tool_choice = {"type": "function", "function": {"name": CATEGORIZATION_TOOL_NAME}}
 
         logger.debug(f"🦙 Категоризация батча из {len(items)} проблем...")
@@ -461,6 +519,7 @@ class DeepSeekClient:
             tools=tools,
             tool_choice=tool_choice,
             temperature=0.0,
+            disable_thinking=True,
         )
 
         try:
