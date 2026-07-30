@@ -57,6 +57,9 @@ class LLMCallError(Exception):
 # Имя функции-инструмента для категоризации проблем (function calling)
 CATEGORIZATION_TOOL_NAME = "submit_categorization"
 
+# Имя функции-инструмента для батчевой нормализации client/address
+NORMALIZATION_TOOL_NAME = "submit_normalization"
+
 
 class DeepSeekClient:
     """Универсальный шлюз для всех вызовов LLM."""
@@ -194,69 +197,148 @@ class DeepSeekClient:
         logger.debug(f"✅ Ответ получен (длина {len(answer)})")
         return answer
 
-    def normalize_batch(self, texts: List[str], field_type: str) -> List[str]:
+    def normalize(self, text: str, field_type: str) -> str:
         """
-        Нормализует пачку значений одного поля (client / address).
-
-        Args:
-            texts: список исходных строк
-            field_type: 'address' или 'client'
-            (для 'problem' используется categorize_and_normalize_batch —
-            там нужна категоризация, а не только нормализация формулировки)
-
-        Returns:
-            список нормализованных строк (в том же порядке)
+        Одиночная нормализация ОДНОГО значения (client / address). Используется
+        только для редкого live-фоллбэка, когда значения не нашлось в кэше
+        (см. fetcher._normalize_with_cache) — самостоятельный метод, не
+        завязан на батчевый normalize_batch_dict(). Для одного элемента нет
+        риска рассинхрона порядка/количества, поэтому обычный текстовый
+        промпт без function calling — оправданно проще, чем городить dict
+        ради единственного ключа.
 
         Raises:
             LLMCallError: пробрасывается из ask() при исчерпании ретраев —
-            вызывающий код (fetcher._normalize_batch) обязан поймать её и
-            не кэшировать результат.
+            вызывающий код обязан поймать её и не кэшировать результат.
         """
-        if not texts:
-            return []
-
-        # Определяем имя задачи
         task_name = f"normalize_{field_type}"
         task_prompt = TASK_PROMPTS.get(task_name)
         if not task_prompt:
             raise ValueError(f"Неизвестный тип поля '{field_type}'. Допустимые: address, client")
 
-        # Формируем нумерованный список
-        numbered = "\n".join(f"{i+1}. {t}" for i, t in enumerate(texts))
-        user_prompt = task_prompt.format(texts=numbered)
+        user_prompt = task_prompt.format(texts=f"1. {text}")
 
-        # Вызываем LLM с ролью normalizer (может бросить LLMCallError — не ловим
-        # здесь намеренно, пусть решает вызывающий код)
         response = self.ask(
             user_prompt=user_prompt,
             system_role="normalizer",
             temperature=0.0
         )
 
-        # Парсим ответ: ожидаем строки, разделённые переводами строк
-        lines = response.strip().split('\n')
-        # Очищаем каждую строку от возможных номеров и лишних пробелов
-        cleaned = []
-        for line in lines:
-            # Убираем ведущие цифры, точки, пробелы
-            clean = line.lstrip('0123456789. ').strip()
-            if clean:
-                cleaned.append(clean)
+        # Берём первую строку ответа, убираем возможный ведущий номер/точку
+        first_line = response.strip().split('\n')[0]
+        cleaned = first_line.lstrip('0123456789. ').strip()
+        return cleaned if cleaned else text
 
-        # Если получили меньше строк, чем было — дополняем исходными
-        if len(cleaned) < len(texts):
-            logger.warning(f"Ответ содержал {len(cleaned)} строк вместо {len(texts)}. Заполняем пропуски.")
-            cleaned.extend(texts[len(cleaned):])
-        # Если больше — обрезаем
-        cleaned = cleaned[:len(texts)]
+    # =========================================================================
+    # НОВОЕ: батчевая нормализация client/address через function calling,
+    # dict-ответ по номеру пункта — тот же паттерн, что и
+    # categorize_and_normalize_batch() для проблем, просто без тегов/категорий.
+    # Заменяет собой старый текстовый normalize_batch() (построчный парсинг +
+    # позиционный zip() — источник рассинхрона при сбое длины ответа).
+    # =========================================================================
+    def _build_normalization_tool_schema(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": NORMALIZATION_TOOL_NAME,
+                    "description": (
+                        "Верни нормализованную формулировку для каждого значения "
+                        "из пронумерованного списка. Ключи в 'results' должны в "
+                        "точности совпадать с номерами из списка."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "results": {
+                                "type": "object",
+                                "description": (
+                                    "Ключ — номер пункта из списка (строкой, например "
+                                    "'1', '2'). Значение — нормализованная строка."
+                                ),
+                                "additionalProperties": {"type": "string"}
+                            }
+                        },
+                        "required": ["results"]
+                    }
+                }
+            }
+        ]
 
-        return cleaned
-
-    def normalize(self, text: str, field_type: str) -> str:
+    def normalize_batch_dict(self, items: Dict[str, str], field_type: str) -> Dict[str, str]:
         """
-        Одиночная нормализация (для обратной совместимости).
+        Нормализует пачку значений одного поля (client/address) за один вызов
+        LLM. Ответ — dict по номеру пункта (id из items), НЕ позиционный
+        список — устойчиво к тому, что модель потеряет/добавит пункт.
+
+        Args:
+            items: {"1": "сырой текст 1", "2": "сырой текст 2", ...} — id
+                локальный для этого вызова, задаётся вызывающим кодом (fetcher).
+            field_type: 'address' или 'client'.
+
+        Returns:
+            {"1": "нормализованная строка", ...} — только те id, для которых
+            модель вернула результат. Отсутствие id в ответе — не исключение,
+            вызывающий код (fetcher._normalize_batch) сам решает, что делать
+            (не кэшировать, оставить на следующий запуск).
+
+        Raises:
+            LLMCallError: ретраи исчерпаны, модель не вызвала инструмент,
+            или аргументы не парсятся как JSON.
         """
-        return self.normalize_batch([text], field_type)[0]
+        if not items:
+            return {}
+
+        task_name = f"normalize_{field_type}"
+        task_prompt = TASK_PROMPTS.get(task_name)
+        if not task_prompt:
+            raise ValueError(f"Неизвестный тип поля '{field_type}'. Допустимые: address, client")
+
+        numbered = "\n".join(f"{item_id}. {text}" for item_id, text in items.items())
+        user_prompt = task_prompt.format(texts=numbered)
+        user_prompt += (
+            f"\n\nДля каждого номера верни нормализованное значение через "
+            f"вызов инструмента {NORMALIZATION_TOOL_NAME}."
+        )
+
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPTS.get("normalizer", "")},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        tools = self._build_normalization_tool_schema()
+        tool_choice = {"type": "function", "function": {"name": NORMALIZATION_TOOL_NAME}}
+
+        logger.debug(f"🦙 Нормализация батча из {len(items)} значений поля '{field_type}'...")
+
+        result = self._call_api(
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            temperature=0.0,
+        )
+
+        try:
+            message = result["choices"][0]["message"]
+            tool_calls = message.get("tool_calls")
+            if not tool_calls:
+                raise ValueError(f"Модель не вызвала инструмент {NORMALIZATION_TOOL_NAME}")
+            arguments_raw = tool_calls[0]["function"]["arguments"]
+            arguments = json.loads(arguments_raw)
+            results = arguments.get("results")
+            if not isinstance(results, dict):
+                raise ValueError(f"Поле 'results' отсутствует или имеет неверный тип: {arguments}")
+        except (KeyError, IndexError, ValueError, json.JSONDecodeError) as e:
+            raise LLMCallError(f"Не удалось извлечь результат нормализации из ответа API: {e}")
+
+        cleaned_results = {
+            item_id: value.strip()
+            for item_id, value in results.items()
+            if isinstance(value, str) and value.strip()
+        }
+
+        logger.debug(f"✅ Нормализация батча завершена, обработано {len(cleaned_results)}/{len(items)}")
+        return cleaned_results
 
     # =========================================================================
     # НОВОЕ: слой 2 для проблем — нормализация + категоризация через

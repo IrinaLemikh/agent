@@ -3,43 +3,39 @@
 Читает каждую таблицу, каждый лист, нормализует данные, сохраняет в Parquet и обновляет индекс.
 
 =============================================================================
-ОЖИДАЕМЫЕ ИНТЕРФЕЙСЫ ДРУГИХ ФАЙЛОВ (пока не реализованы/не утверждены)
+ИНТЕРФЕЙСЫ ДРУГИХ ФАЙЛОВ (реализованы, актуально)
 =============================================================================
-Этот файл написан "с перспективой" на файлы, которые мы напишем следующими
-шагами. Ниже — контракт, который fetcher.py ожидает от них. Когда будем
-писать эти файлы, важно попасть именно в эти сигнатуры (или вернуться сюда
-и поправить fetcher.py).
-
-1) core/data/categories.py -> класс CategoriesManager
-   - __init__(self, path: str = "config/categories.json")
+1) core/data/categories.py -> класс CategoriesManager (реализован)
+   - __init__(self, path: Path = Path("/app/config/categories.json"))
    - get_category_names(self) -> List[str]
-       Просто список названий категорий (для fuzzy-сравнения в слое 1).
+       Список названий категорий (для fuzzy-сравнения в слое 1 и enum в function calling).
    - to_prompt_text(self) -> str
        Развёрнутый текст со списком категорий + их description/hint,
        готовый для вставки в промпт LLM (слой 2).
 
-2) core/data/glossary.py -> класс Glossary (уже существует, добавляем 1 метод)
+2) core/data/glossary.py -> класс Glossary (реализован, to_prompt_text() добавлен)
    - to_prompt_text(self) -> str
-       Весь словарь целиком плоским текстом для вставки в промпт.
-       Существующие lookup()/list_terms()/reload() не трогаем.
+       Весь словарь целиком плоским текстом для вставки в промпт — основной
+       способ подачи словаря модели. lookup()/list_terms()/тул-схемы оставлены
+       про запас, в текущей архитектуре не используются.
 
 3) core/llm/client.py -> класс DeepSeekClient (УЖЕ ПЕРЕПИСАН, актуально)
-   - categorize_and_normalize_batch(
-         self,
-         items: Dict[str, str],        # {"1": "сырой текст 1", "2": "сырой текст 2", ...}
-         category_names: List[str],    # CategoriesManager.get_category_names() — для enum в function calling
-         categories_text: str,         # результат CategoriesManager.to_prompt_text()
-         glossary_text: str,           # результат Glossary.to_prompt_text()
-     ) -> Dict[str, Dict[str, Any]]
-       Возвращает {"1": {"normalized": "...", "tags": ["..."]}, ...}
-       по тем же ключам, что и в items. Формат ответа — dict по номеру
-       пункта, НЕ позиционный список (см. решение про переход с zip()).
-       При исчерпании ретраев бросает LLMCallError (см. core/llm/client.py) —
-       fetcher.py ловит именно этот тип и НЕ кэширует результат при ошибке.
+   - categorize_and_normalize_batch(items, category_names, categories_text, glossary_text)
+       -> Dict[str, Dict[str, Any]] — {"1": {"normalized": "...", "tags": ["..."]}, ...}.
+       Слой 2 для проблем, function calling с enum по категориям.
+   - normalize_batch_dict(items: Dict[str, str], field_type: str) -> Dict[str, str]
+       -> {"1": "нормализованная строка", ...}. Батч для client/address,
+       тот же паттерн dict-по-id, что и у categorize_and_normalize_batch.
+       Заменил собой старый текстовый normalize_batch() (построчный парсинг +
+       позиционный zip()) — метод удалён из client.py, легаси не осталось.
+   - normalize(text, field_type) -> str — одиночная нормализация (live-фоллбэк
+       в fetcher._normalize_with_cache), самостоятельный текстовый промпт,
+       не зависит от normalize_batch_dict.
+   Оба батчевых метода при исчерпании ретраев бросают LLMCallError —
+   fetcher.py ловит именно этот тип и НЕ кэширует результат при ошибке.
 
-Файл core/data/categories.py всё ещё предстоит написать под контракт выше —
-до этого прогон упадёт на импорте CategoriesManager. client.py и fetcher.py
-между собой уже согласованы.
+Все три файла реализованы и согласованы между собой по сигнатурам и путям
+(единая конвенция /app/... — см. core/data/categories.py и core/data/glossary.py).
 =============================================================================
 """
 
@@ -252,27 +248,29 @@ class Fetcher:
         return unique
 
     # =========================================================================
-    # ИЗМЕНЕНО: нормализация батча для client/address (БЕЗ ИЗМЕНЕНИЙ ЛОГИКИ —
-    # для проблем теперь используется отдельный метод, см.
-    # _categorize_and_normalize_problems_batch ниже)
+    # ИЗМЕНЕНО: нормализация батча client/address — теперь тот же паттерн,
+    # что и у _categorize_and_normalize_problems_batch: id→значение,
+    # dict-ответ от LLM (function calling), то что не пришло в ответе —
+    # НЕ кэшируем, оставляем на следующий запуск. Старый текстовый
+    # normalize_batch() (построчный парсинг + позиционный zip()) удалён из
+    # client.py — вызывающий код здесь уже не проверяет длину ответа,
+    # рассинхрон по количеству элементов больше структурно невозможен.
     # =========================================================================
     def _normalize_batch(self, field_type: str, raw_values: set) -> Dict[str, str]:
         """
-        Нормализует пачку уникальных значений одного типа с помощью батчевого вызова LLM.
-        field_type: 'client' или 'address' (для 'problem' используется отдельный метод).
-        raw_values: множество сырых строк
-        Возвращает словарь {исходное_значение: нормализованное}
+        Нормализует пачку уникальных значений одного типа (client/address).
+        raw_values — уже отфильтрованы вызывающим кодом (_process_sheet) от
+        значений, которые есть в кэше, повторной проверки кэша здесь нет.
+        Возвращает {исходное_значение: нормализованное} — только для тех
+        значений, которые реально попали в кэш в этом вызове.
         """
         if not raw_values:
             return {}
 
         logger.info(f"🦙 Начинаем нормализацию {len(raw_values)} уникальных значений для поля '{field_type}'")
-        results = {}
+        results: Dict[str, str] = {}
 
-        # Сортируем для стабильности
         sorted_values = sorted(raw_values)
-
-        # Размер батча — 50
         batch_size = 50
         total_batches = (len(sorted_values) + batch_size - 1) // batch_size
 
@@ -281,44 +279,37 @@ class Fetcher:
             end = min(start + batch_size, len(sorted_values))
             batch = sorted_values[start:end]
 
-            # Отфильтруем значения, которые уже есть в кэше
-            to_normalize = []
-            for val in batch:
-                key = val.lower()
-                if key in self.cache[field_type]:
-                    results[val] = self.cache[field_type][key]  # по сырому ключу отдаём нормализованное
-                    self.stats["cache_hits"] += 1
-                else:
-                    to_normalize.append(val)
+            # id локальный для этого вызова (не завязан на позицию в батче
+            # содержательно — просто ключ для сопоставления с ответом LLM)
+            id_to_value = {str(i + 1): val for i, val in enumerate(batch)}
 
-            if to_normalize:
-                try:
-                    # Вызываем батчевую нормализацию
-                    normalized_list = self.llm_client.normalize_batch(to_normalize, field_type)
-                    self.stats["llm_calls"] += 1
+            try:
+                response = self.llm_client.normalize_batch_dict(
+                    items=id_to_value,
+                    field_type=field_type,
+                )
+                self.stats["llm_calls"] += 1
 
-                    if len(normalized_list) != len(to_normalize):
-                        logger.warning(f"⚠️ Длина ответа ({len(normalized_list)}) не совпадает с длиной запроса ({len(to_normalize)}). Используем исходные значения.")
-                        normalized_list = to_normalize  # fallback
+                for item_id, val in id_to_value.items():
+                    if item_id in response:
+                        normalized = response[item_id]
+                        results[val] = normalized
+                        self.cache[field_type][val.lower()] = normalized
+                        logger.debug(f"    ✅ {field_type}: '{val[:30]}...' -> '{normalized[:30]}...'")
+                    else:
+                        # Модель потеряла пункт — НЕ кэшируем мусор, оставляем
+                        # значение необработанным до следующего запуска.
+                        logger.warning(f"⚠️ LLM не вернула ответ для пункта {item_id} ('{val[:40]}...'), "
+                                       f"пропускаем без кэширования")
 
-                    for orig, norm in zip(to_normalize, normalized_list):
-                        results[orig] = norm
-                        # сохраняем в кэш по ключу orig.lower()
-                        self.cache[field_type][orig.lower()] = norm
-                        logger.debug(f"    ✅ {field_type}: '{orig[:30]}...' -> '{norm[:30]}...'")
-                except LLMCallError as e:
-                    logger.error(f"❌ Ошибка при нормализации батча: {e}")
-                    # В случае ошибки возвращаем исходные значения, не сохраняем в кэш
-                    for orig in to_normalize:
-                        results[orig] = orig
-            else:
-                logger.debug(f"Все значения батча уже были в кэше")
+            except LLMCallError as e:
+                logger.error(f"❌ Ошибка при нормализации батча '{field_type}': {e}")
+                # Ничего не кэшируем — весь батч останется "трудным остатком"
+                # и будет повторно обработан при следующем запуске.
 
-            # Задержка между батчами (кроме последнего)
             if batch_idx < total_batches - 1:
                 time.sleep(MIN_LLM_DELAY)
 
-            # Сохраняем кэш после каждого батча
             self._save_cache()
             logger.debug(f"💾 Кэш сохранён после батча {batch_idx+1}/{total_batches}")
 
@@ -852,13 +843,32 @@ class Fetcher:
         if self.all_records:
             df = pd.DataFrame(self.all_records)
 
-           # Удаляем дубликаты по ticket_id (если есть)
+           # Дедупликация по ticket_id — ТОЛЬКО среди строк, где он реально
+            # заполнен. Строки без ticket_id (None/пустая строка — например,
+            # лист без колонки "Номер") дедупликации не подвергаются: без
+            # номера мы не можем надёжно отличить дубликат от двух разных
+            # обращений, а pandas считает все NaN/None равными друг другу —
+            # раньше это могло схлопнуть в одну строку ВСЕ записи без номера
+            # тикета по всему датасету сразу. Лучше оставить лишнюю строку,
+            # чем случайно стереть настоящую.
             if "ticket_id" in df.columns:
-                initial_count = len(df)
-                df = df.drop_duplicates(subset=["ticket_id"], keep="first")
-                duplicates_removed = initial_count - len(df)
+                has_ticket_mask = df["ticket_id"].notna() & (df["ticket_id"].astype(str).str.strip() != "")
+                with_ticket = df[has_ticket_mask]
+                without_ticket = df[~has_ticket_mask]
+
+                initial_with_ticket = len(with_ticket)
+                with_ticket = with_ticket.drop_duplicates(subset=["ticket_id"], keep="first")
+                duplicates_removed = initial_with_ticket - len(with_ticket)
                 if duplicates_removed > 0:
                     logger.info(f"🗑️ Удалено {duplicates_removed} дубликатов по ticket_id")
+
+                if len(without_ticket) > 0:
+                    logger.warning(
+                        f"⚠️ {len(without_ticket)} строк без ticket_id — дедупликация для них "
+                        f"НЕ применялась (нет надёжного способа отличить дубликат от разных обращений)"
+                    )
+
+                df = pd.concat([with_ticket, without_ticket], ignore_index=True)
 
             parquet_path = Path("/app/core/data/current.parquet")
             parquet_path.parent.mkdir(parents=True, exist_ok=True)
