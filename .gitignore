@@ -27,7 +27,6 @@ service_account*.json
 cache/*
 logs/*
 *.log
-core/data/*.parquet
 core/data/*.csv
 core/data/*.pkl
 
