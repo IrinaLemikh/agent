@@ -62,6 +62,7 @@ from core.llm.client import DeepSeekClient, LLMCallError
 from core.data.glossary import Glossary
 # НОВОЕ: менеджер категорий (файл ещё предстоит написать — см. контракт выше)
 from core.data.categories import CategoriesManager
+from core.data.reconciler import reconcile
 from loguru import logger
 
 # Настройка логгера
@@ -271,7 +272,7 @@ class Fetcher:
         results: Dict[str, str] = {}
 
         sorted_values = sorted(raw_values)
-        batch_size = 50
+        batch_size = 100
         total_batches = (len(sorted_values) + batch_size - 1) // batch_size
 
         for batch_idx in range(total_batches):
@@ -323,8 +324,22 @@ class Fetcher:
     def _match_category_by_fuzzy(self, problem_raw: str) -> Optional[str]:
         """
         Сравнивает сырой текст обращения с названиями категорий из categories.json.
-        Использует token_sort_ratio (устойчив к перестановке слов/пунктуации),
-        порог CATEGORY_FUZZY_THRESHOLD = 90.
+        Использует token_set_ratio (в отличие от token_sort_ratio не штрафует за
+        разницу в длине строк — сырой текст почти всегда длиннее короткого имени
+        категории, а совпадение по общим токенам всё равно означает точный матч,
+        см. обсуждение в чате: "консультация по ремонту пк" против категории
+        "консультация" раньше давал ~60, теперь 100), порог CATEGORY_FUZZY_THRESHOLD = 90.
+
+        ВАЖНО (известный компромисс, см. обсуждение в чате): на 90 короткие
+        акронимные категории вроде "ККТ"/"УТМ" иногда ложно перетягивают к себе
+        похожие по буквам, но семантически разные обращения (например, "ФМУ:
+        некорректная работа" может уйти в "УТМ"). Порог 95 эту проблему решает,
+        но при этом режет часть настоящих совпадений там, где в сыром тексте не
+        хватает одного-двух слов из длинного названия категории (например,
+        "Прогрузка весов шаблоном этикетки" не дотягивает до полного названия
+        "Весы: прогрузка шаблоном этикетки, редактирование этикетки (Пропал PRO
+        шаблон)"). Осознанно оставлено 90 — нужна проверка на реальных данных
+        перед повторным поднятием порога.
 
         Возвращает название категории при уверенном совпадении, иначе None.
         """
@@ -334,7 +349,7 @@ class Fetcher:
         best_match = None
         best_score = 0
         for category_name in self._category_names:
-            score = fuzz.token_sort_ratio(problem_raw, category_name)
+            score = fuzz.token_set_ratio(problem_raw, category_name)
             if score > best_score:
                 best_score = score
                 best_match = category_name
@@ -766,17 +781,13 @@ class Fetcher:
                     # status, event_group, assignee, author
                     record[target] = value.strip() if isinstance(value, str) else value
 
-            # Вычисляем point_key на основе нормализованных клиента и адреса
-            client_norm = record.get('client_normalized')
-            addr_norm = record.get('address_normalized')
-            if client_norm and addr_norm:
-                record['point_key'] = f"{client_norm} | {addr_norm}"
-            elif client_norm:
-                record['point_key'] = client_norm
-            elif addr_norm:
-                record['point_key'] = addr_norm
-            else:
-                record['point_key'] = None
+            # point_key больше НЕ считается здесь построчно — построчный расчёт
+            # не видел других строк с тем же клиентом/адресом, из-за чего разные
+            # написания одной и той же точки (см. обсуждение в чате: "Иванов ИИ"
+            # и "ИП Иванов Иван Иванович" на одном адресе) получали разные
+            # point_key. Теперь это единственный векторизованный проход по всему
+            # df в reconciler.recompute_point_key(), вызывается из fetch_all()
+            # после реконсиляции client_normalized/address_normalized.
 
             self.all_records.append(record)
             sheet_records.append(record)
@@ -842,6 +853,18 @@ class Fetcher:
         # Сохраняем все записи в Parquet
         if self.all_records:
             df = pd.DataFrame(self.all_records)
+
+            # Реконсиляция: сведение вариантов написания одного клиента/адреса
+            # через общий якорь (адрес для клиента, клиент для адреса) и
+            # пересчёт point_key одним проходом по всему df — см.
+            # core/data/reconciler.py. Кэш нормализации (self.cache) этим не
+            # затрагивается, реконсиляция работает только над DataFrame и
+            # пересчитывается заново при каждом прогоне.
+            df, recon_report = reconcile(df)
+            logger.info(
+                f"🔗 Реконсиляция: слито групп клиентов — {len(recon_report['client_merges'])}, "
+                f"подтянуто городов — {len(recon_report['address_backfills'])}"
+            )
 
            # Дедупликация по ticket_id — ТОЛЬКО среди строк, где он реально
             # заполнен. Строки без ticket_id (None/пустая строка — например,
