@@ -1,73 +1,20 @@
 """
 Универсальный клиент для DeepSeek API.
 
-=============================================================================
-ЧТО ИЗМЕНИЛОСЬ И ПОЧЕМУ
-=============================================================================
-1) БАГ-ФИКС: раньше ask() при исчерпании ретраев ТИХО возвращал user_prompt
-   (сам промпт) как будто это ответ модели — "чтобы не ломать поток". Из-за
-   этого normalize_batch() не попадал в except-ветку (ошибки формально не
-   было), парсил промпт как будто это нормальный ответ, и мусорный результат
-   уходил в кэш НАВСЕГДА. Теперь при исчерпании ретраев бросается исключение
-   LLMCallError — вызывающий код (fetcher.py) обязан его поймать и НЕ
-   кэшировать такие значения. fetcher.py уже ловит широкий Exception в
-   нужных местах, так что менять его прямо сейчас не обязательно.
+Все батч-методы (categorize_and_normalize_batch, normalize_client_address_batch)
+следуют одному паттерну: dict-по-id + принудительный tool_choice на конкретную
+функцию + disable_thinking=True. disable_thinking нужен по двум причинам сразу
+(см. документацию DeepSeek): в thinking mode нельзя форсировать конкретный тул
+через tool_choice, и temperature молча игнорируется в этом режиме.
 
-2) РЕФАКТОРИНГ: общая retry-логика вынесена в приватный _call_api(), чтобы
-   не дублировать её между ask() и новым categorize_and_normalize_batch().
-
-3) НОВОЕ: categorize_and_normalize_batch() — метод слоя 2 для проблем.
-   Категории передаются через function calling с динамическим enum
-   (модель физически не может вернуть тег вне списка категорий), словарь и
-   пояснения категорий — обычным текстом в промпте. Ответ — dict по номеру
-   пункта (id из items), а не позиционный список.
-
-4) НОВОЕ: normalize_batch_dict() для client/address — тот же паттерн
-   dict-по-id + function calling, что и у categorize_and_normalize_batch(),
-   только без enum (просто произвольная нормализованная строка на id).
-   Заменяет собой старый normalize_batch() (построчный парсинг ответа +
-   позиционный zip() с исходным списком) — легаси-метод удалён полностью,
-   не оставлен даже закомментированным (решение принято в чате: сносим).
-   normalize() (одиночная нормализация "на лету", когда значения нет в
-   кэше) переписан как самостоятельный метод — больше не вызывает
-   normalize_batch внутри себя, т.к. того метода больше не существует.
-
-5) БАГ-ФИКС ПО ИТОГАМ СМОУК-ТЕСТА: модель по умолчанию работает в
-   "thinking mode" (reasoning), а эта модель у DeepSeek запрещает
-   принудительный tool_choice (400: "Thinking mode does not support this
-   tool_choice"). Финальное решение — не переход на tool_choice="auto"
-   (промежуточный вариант), а явное отключение thinking через
-   {"thinking": {"type": "disabled"}} в payload (параметр disable_thinking
-   у _call_api, включён для normalize_batch_dict и
-   categorize_and_normalize_batch). Это чинит сразу два эффекта:
-   (а) снова разрешает форсировать конкретную функцию через tool_choice —
-       надёжнее, чем "auto", модель гарантированно её вызовет;
-   (б) возвращает реальный эффект от temperature=0.0 — согласно
-       документации DeepSeek, thinking mode молча ИГНОРИРУЕТ temperature
-       (не бросает ошибку, просто не применяет), так что раньше наша
-       "детерминированная" категоризация температуру фактически не имела.
-
-=============================================================================
-ОЖИДАЕМЫЕ КЛЮЧИ В prompts.py (файл сам ещё не переписан, это контракт для
-следующего шага)
-=============================================================================
-- SYSTEM_PROMPTS["normalizer"]   — уже существует, не меняется
-- SYSTEM_PROMPTS["categorizer"]  — НОВОЕ, роль для категоризации проблем
-- TASK_PROMPTS["normalize_client"] / ["normalize_address"] — уже существуют
-- TASK_PROMPTS["categorize_problem"] — НОВОЕ, шаблон с плейсхолдерами
-      {items}            — нумерованный список сырых обращений
-      {categories_text}  — текст категорий с пояснениями (CategoriesManager.to_prompt_text())
-      {glossary_text}    — текст словаря целиком (Glossary.to_prompt_text())
-  Сам шаблон не обязан включать инструкцию по формату ответа — формат задаётся
-  через function calling (модель обязана вызвать инструмент), а не через
-  просьбу "ответь в формате JSON" в тексте.
-=============================================================================
+При исчерпании ретраев _call_api бросает LLMCallError — вызывающий код
+(fetcher.py) обязан поймать её и НЕ кэшировать результат.
 """
 import os
 import json
 import requests
 import time
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from config.settings import DEEPSEEK_API_KEY
 from loguru import logger
 from .prompts import SYSTEM_PROMPTS, TASK_PROMPTS
@@ -82,8 +29,47 @@ class LLMCallError(Exception):
 # Имя функции-инструмента для категоризации проблем (function calling)
 CATEGORIZATION_TOOL_NAME = "submit_categorization"
 
-# Имя функции-инструмента для нормализации client/address (function calling)
-NORMALIZATION_TOOL_NAME = "submit_normalization"
+# Имя функции-инструмента для совместной нормализации пары client+address
+# (см. обсуждение в чате: раздельная нормализация не видит, что город/бренд/
+# юрлицо могут быть перепутаны между двумя сырыми полями одной строки)
+CLIENT_ADDRESS_TOOL_NAME = "submit_client_address"
+
+
+def _compose_address(city: str, street: str, house: str, korpus: str, apartment: str) -> str:
+    """
+    Собирает address_normalized из структурных полей в ФИКСИРОВАННОМ порядке
+    и формате - детерминированно, без участия LLM в форматировании. Чинит
+    найденный на реальных данных баг реконсилятора: раньше модель сама решала,
+    писать ли "д." перед номером дома, из-за чего один и тот же дом ("ул.
+    Крылова, д. 53/1" vs "Екатеринбург, ул. Крылова, 53/1") давал разные
+    отпечатки в reconciler.address_fingerprint. Теперь house - отдельное
+    поле, слово "д." туда в принципе попасть не может.
+    """
+    parts = []
+    if city:
+        parts.append(city)
+    if street:
+        parts.append(f"ул. {street}" if house else street)
+    if house:
+        h = f"{house}/{korpus}" if korpus else house
+        parts.append(h)
+    if apartment:
+        parts.append(f"кв. {apartment}")
+    return ", ".join(parts)
+
+
+def _expand_point_name(raw: str, aliases: Dict[str, str]) -> str:
+    """
+    Разворачивает короткий квалификатор ("проф") в полное имя суб-бренда
+    ("Пивко Проф") по словарю aliases (Glossary.alias_map(section=
+    "client_address"), собирается вызывающим кодом в fetcher — client.py
+    сюда напрямую glossary.py не импортирует, тот же паттерн передачи
+    готового текста/словаря параметром, что и у categorize_and_normalize_batch.
+    Если alias не найден — возвращает исходный текст как есть (не выдумывает).
+    """
+    if not raw:
+        return ""
+    return aliases.get(raw.strip().lower(), raw.strip())
 
 
 class DeepSeekClient:
@@ -130,7 +116,7 @@ class DeepSeekClient:
            применяется только при disable_thinking=True.
         """
         payload = {
-            "model": "deepseek-v4-flash",
+            "model": "deepseek-flash",
             "messages": messages,
             "temperature": temperature,
             "max_tokens": 50000,
@@ -244,21 +230,26 @@ class DeepSeekClient:
         logger.debug(f"✅ Ответ получен (длина {len(answer)})")
         return answer
 
-    def _build_normalization_tool_schema(self) -> List[Dict[str, Any]]:
+    def _build_client_address_tool_schema(self) -> List[Dict[str, Any]]:
         """
-        JSON-схема инструмента для нормализации client/address через
-        function calling. В отличие от категоризации, здесь нет enum —
-        просто произвольная нормализованная строка на каждый id.
+        JSON-схема инструмента для совместной нормализации пары client+address
+        через function calling. Каждый пункт результата — не одна строка, а
+        объект с тремя независимыми сущностями (client_normalized, point_name,
+        структурные адресные поля) — см. TASK_NORMALIZE_CLIENT_ADDRESS.
+        Пустая строка = "не нашлось", поле всё равно обязано присутствовать
+        (required), чтобы JSON был одной формы и парсинг не падал на
+        отсутствующих ключах.
         """
+        address_field = {"type": "string"}
         return [
             {
                 "type": "function",
                 "function": {
-                    "name": NORMALIZATION_TOOL_NAME,
+                    "name": CLIENT_ADDRESS_TOOL_NAME,
                     "description": (
-                        "Верни нормализованную формулировку для каждого значения "
-                        "из пронумерованного списка. Ключи в 'results' должны в "
-                        "точности совпадать с номерами из списка."
+                        "Верни разбор клиента, названия точки и адреса для каждой "
+                        "пары из пронумерованного списка. Ключи в 'results' должны "
+                        "в точности совпадать с номерами из списка."
                     ),
                     "parameters": {
                         "type": "object",
@@ -266,73 +257,89 @@ class DeepSeekClient:
                             "results": {
                                 "type": "object",
                                 "description": (
-                                    "Ключ — номер пункта из списка (строкой, например "
-                                    "'1', '2'). Значение — нормализованная строка для этого пункта."
+                                    "Ключ — номер пункта из списка (строкой). Значение — "
+                                    "разбор пары на client_normalized/point_name/адресные поля."
                                 ),
-                                "additionalProperties": {"type": "string"}
+                                "additionalProperties": {
+                                    "type": "object",
+                                    "properties": {
+                                        "client_normalized": {"type": "string"},
+                                        "point_name": {"type": "string"},
+                                        "city": address_field,
+                                        "street": address_field,
+                                        "house": address_field,
+                                        "korpus": address_field,
+                                        "apartment": address_field,
+                                    },
+                                    "required": [
+                                        "client_normalized", "point_name",
+                                        "city", "street", "house", "korpus", "apartment",
+                                    ],
+                                },
                             }
                         },
-                        "required": ["results"]
-                    }
-                }
+                        "required": ["results"],
+                    },
+                },
             }
         ]
 
-    def normalize_batch_dict(self, items: Dict[str, str], field_type: str) -> Dict[str, str]:
+    def normalize_client_address_batch(
+        self,
+        pairs: Dict[str, Tuple[str, str]],
+        point_name_glossary_text: str = "",
+        point_name_aliases: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Dict[str, str]]:
         """
-        Нормализует пачку значений одного поля (client / address) через
-        function calling, dict-по-id — тот же паттерн, что и
-        categorize_and_normalize_batch(). Заменяет собой прежний
-        normalize_batch() с построчным парсингом и позиционным zip()
-        (тот метод удалён — легаси не осталось, см. решение в чате).
+        Совместная нормализация пар (client_raw, address_raw) одним вызовом —
+        заменяет собой раздельные normalize_batch_dict("client"/"address").
+        Тот же паттерн dict-по-id + принудительный tool_choice + disable_thinking,
+        что и у других батч-методов этого класса.
 
         Args:
-            items: {"1": "сырой текст 1", "2": "сырой текст 2", ...} — id
-                локальный для этого вызова, задаётся вызывающим кодом (fetcher).
-            field_type: 'address' или 'client'
-                (для 'problem' используется categorize_and_normalize_batch —
-                там нужна ещё и категоризация, а не только нормализация).
+            pairs: {"1": (client_raw, address_raw), ...} — id локальный для
+                этого вызова, задаётся вызывающим кодом (fetcher).
+            point_name_glossary_text: маленький блок из
+                Glossary.to_prompt_text(section="client_address") — контекст
+                про известные суб-бренды (например "Пивко Проф"), НЕ весь
+                технический глоссарий. Может быть пустой строкой.
 
         Returns:
-            {"1": "нормализованная строка", ...} — по тем же ключам, что в
-            items. Если модель не вернула ответ для какого-то id, этот ключ
-            в результате отсутствует (вызывающий код — fetcher._normalize_batch —
-            логирует это и НЕ кэширует значение).
+            {"1": {"client_normalized": "...", "point_name": "...",
+                    "address_normalized": "..."}, ...} — address_normalized уже
+            собран из структурных полей детерминированно (_compose_address),
+            point_name уже прогнан через алиас-словарь (_expand_point_name).
+            Если модель не вернула ответ для какого-то id, этот ключ в
+            результате отсутствует (вызывающий код обязан не кэшировать).
 
         Raises:
             LLMCallError: ретраи исчерпаны, модель не вызвала инструмент,
-            или аргументы инструмента не парсятся как JSON. Вызывающий код
-            обязан поймать эту ошибку и не кэшировать результат для всего
-            батча.
+            или аргументы инструмента не парсятся как JSON.
         """
-        if not items:
+        if not pairs:
             return {}
 
-        task_name = f"normalize_{field_type}"
-        task_prompt = TASK_PROMPTS.get(task_name)
-        if not task_prompt:
-            raise ValueError(f"Неизвестный тип поля '{field_type}'. Допустимые: address, client")
+        point_name_aliases = point_name_aliases or {}
 
-        numbered = "\n".join(f"{item_id}. {text}" for item_id, text in items.items())
-        user_prompt = task_prompt.format(texts=numbered)
+        task_prompt = TASK_PROMPTS.get("normalize_client_address")
+        if not task_prompt:
+            raise ValueError("В TASK_PROMPTS отсутствует шаблон 'normalize_client_address'")
+
+        numbered = "\n".join(
+            f"{item_id}. КЛИЕНТ: {client or '(пусто)'} | АДРЕС: {address or '(пусто)'}"
+            for item_id, (client, address) in pairs.items()
+        )
+        user_prompt = task_prompt.format(texts=numbered, glossary_text=point_name_glossary_text)
 
         messages = [
             {"role": "system", "content": SYSTEM_PROMPTS.get("normalizer", "")},
             {"role": "user", "content": user_prompt},
         ]
 
-        tools = self._build_normalization_tool_schema()
-        # ИСПРАВЛЕНО по итогам смоук-теста: изначальная проблема была не в
-        # tool_choice как таковом, а в том, что модель по умолчанию работает
-        # в thinking mode, а она запрещает принудительный выбор функции.
-        # Отключаем thinking (disable_thinking=True ниже) — это же заодно
-        # чинит и temperature=0.0, которая в thinking mode молча
-        # игнорировалась (см. документацию DeepSeek). С отключённым thinking
-        # можно снова форсировать конкретную функцию — это надёжнее "auto",
-        # модель гарантированно её вызовет.
-        tool_choice = {"type": "function", "function": {"name": NORMALIZATION_TOOL_NAME}}
+        tools = self._build_client_address_tool_schema()
+        tool_choice = {"type": "function", "function": {"name": CLIENT_ADDRESS_TOOL_NAME}}
 
-        logger.debug(f"🦙 Нормализация батча из {len(items)} значений ('{field_type}')...")
+        logger.debug(f"🦙 Нормализация клиент+адрес батча из {len(pairs)} пар...")
 
         result = self._call_api(
             messages=messages,
@@ -346,54 +353,38 @@ class DeepSeekClient:
             message = result["choices"][0]["message"]
             tool_calls = message.get("tool_calls")
             if not tool_calls:
-                raise ValueError("Модель не вызвала инструмент submit_normalization")
+                raise ValueError("Модель не вызвала инструмент submit_client_address")
             arguments_raw = tool_calls[0]["function"]["arguments"]
             arguments = json.loads(arguments_raw)
             results = arguments.get("results")
             if not isinstance(results, dict):
                 raise ValueError(f"Поле 'results' отсутствует или имеет неверный тип: {arguments}")
         except (KeyError, IndexError, ValueError, json.JSONDecodeError) as e:
-            raise LLMCallError(f"Не удалось извлечь результат нормализации из ответа API: {e}")
+            raise LLMCallError(f"Не удалось извлечь результат нормализации клиент+адрес из ответа API: {e}")
 
-        cleaned_results: Dict[str, str] = {}
-        for item_id, value in results.items():
-            if isinstance(value, str) and value.strip():
-                cleaned_results[item_id] = value.strip()
-            else:
-                logger.warning(f"⚠️ Некорректное значение для пункта {item_id}, пропускаем: {value!r}")
+        cleaned_results: Dict[str, Dict[str, str]] = {}
+        for item_id, entry in results.items():
+            if not isinstance(entry, dict):
+                logger.warning(f"⚠️ Некорректная запись для пункта {item_id}, пропускаем: {entry}")
+                continue
 
-        logger.debug(f"✅ Нормализация батча завершена, обработано {len(cleaned_results)}/{len(items)}")
+            client_normalized = (entry.get("client_normalized") or "").strip()
+            point_name = _expand_point_name((entry.get("point_name") or "").strip(), point_name_aliases)
+            address_normalized = _compose_address(
+                city=(entry.get("city") or "").strip(),
+                street=(entry.get("street") or "").strip(),
+                house=(entry.get("house") or "").strip(),
+                korpus=(entry.get("korpus") or "").strip(),
+                apartment=(entry.get("apartment") or "").strip(),
+            )
+            cleaned_results[item_id] = {
+                "client_normalized": client_normalized,
+                "point_name": point_name,
+                "address_normalized": address_normalized,
+            }
+
+        logger.debug(f"✅ Нормализация клиент+адрес завершена, обработано {len(cleaned_results)}/{len(pairs)}")
         return cleaned_results
-
-    def normalize(self, text: str, field_type: str) -> str:
-        """
-        Одиночная нормализация одного значения — самостоятельный метод, НЕ
-        зависит от normalize_batch_dict (используется как редкий
-        live-фоллбэк в fetcher._normalize_with_cache, когда значения не
-        нашлось в кэше). Обычный текстовый промпт без function calling —
-        для одного значения проблема потери позиции неактуальна.
-
-        Raises:
-            LLMCallError: пробрасывается из ask() при исчерпании ретраев —
-            вызывающий код обязан поймать её и не кэшировать результат.
-        """
-        task_name = f"normalize_{field_type}"
-        task_prompt = TASK_PROMPTS.get(task_name)
-        if not task_prompt:
-            raise ValueError(f"Неизвестный тип поля '{field_type}'. Допустимые: address, client")
-
-        user_prompt = task_prompt.format(texts=f"1. {text}")
-
-        response = self.ask(
-            user_prompt=user_prompt,
-            system_role="normalizer",
-            temperature=0.0
-        )
-
-        # Одна строка ответа — убираем возможную нумерацию модели
-        first_line = response.strip().split("\n")[0]
-        cleaned = first_line.lstrip("0123456789. ").strip()
-        return cleaned if cleaned else text
 
     # =========================================================================
     # НОВОЕ: слой 2 для проблем — нормализация + категоризация через
@@ -507,9 +498,6 @@ class DeepSeekClient:
         ]
 
         tools = self._build_categorization_tool_schema(category_names)
-        # См. подробный комментарий в normalize_batch_dict — отключаем
-        # thinking (disable_thinking=True ниже), после чего принудительный
-        # tool_choice снова работает и temperature=0.0 реально применяется.
         tool_choice = {"type": "function", "function": {"name": CATEGORIZATION_TOOL_NAME}}
 
         logger.debug(f"🦙 Категоризация батча из {len(items)} проблем...")

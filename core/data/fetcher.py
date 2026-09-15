@@ -3,39 +3,27 @@
 Читает каждую таблицу, каждый лист, нормализует данные, сохраняет в Parquet и обновляет индекс.
 
 =============================================================================
-ИНТЕРФЕЙСЫ ДРУГИХ ФАЙЛОВ (реализованы, актуально)
+ИНТЕРФЕЙСЫ ДРУГИХ ФАЙЛОВ (актуально)
 =============================================================================
-1) core/data/categories.py -> класс CategoriesManager (реализован)
-   - __init__(self, path: Path = Path("/app/config/categories.json"))
-   - get_category_names(self) -> List[str]
-       Список названий категорий (для fuzzy-сравнения в слое 1 и enum в function calling).
-   - to_prompt_text(self) -> str
-       Развёрнутый текст со списком категорий + их description/hint,
-       готовый для вставки в промпт LLM (слой 2).
+1) core/data/categories.py -> CategoriesManager: get_category_names(),
+   to_prompt_text() — слой 1 (fuzzy) и слой 2 (LLM) для проблем.
 
-2) core/data/glossary.py -> класс Glossary (реализован, to_prompt_text() добавлен)
-   - to_prompt_text(self) -> str
-       Весь словарь целиком плоским текстом для вставки в промпт — основной
-       способ подачи словаря модели. lookup()/list_terms()/тул-схемы оставлены
-       про запас, в текущей архитектуре не используются.
+2) core/data/glossary.py -> Glossary: to_prompt_text(section="problem"|
+   "client_address"), alias_map(section="client_address") — раздел
+   "client_address" содержит только контекст про суб-бренды (например
+   "Пивко Проф"), НЕ весь технический словарь.
 
-3) core/llm/client.py -> класс DeepSeekClient (УЖЕ ПЕРЕПИСАН, актуально)
-   - categorize_and_normalize_batch(items, category_names, categories_text, glossary_text)
-       -> Dict[str, Dict[str, Any]] — {"1": {"normalized": "...", "tags": ["..."]}, ...}.
-       Слой 2 для проблем, function calling с enum по категориям.
-   - normalize_batch_dict(items: Dict[str, str], field_type: str) -> Dict[str, str]
-       -> {"1": "нормализованная строка", ...}. Батч для client/address,
-       тот же паттерн dict-по-id, что и у categorize_and_normalize_batch.
-       Заменил собой старый текстовый normalize_batch() (построчный парсинг +
-       позиционный zip()) — метод удалён из client.py, легаси не осталось.
-   - normalize(text, field_type) -> str — одиночная нормализация (live-фоллбэк
-       в fetcher._normalize_with_cache), самостоятельный текстовый промпт,
-       не зависит от normalize_batch_dict.
+3) core/llm/client.py -> DeepSeekClient:
+   - categorize_and_normalize_batch(items, category_names, categories_text,
+     glossary_text) -> {"1": {"normalized": ..., "tags": [...]}, ...}
+   - normalize_client_address_batch(pairs, point_name_glossary_text,
+     point_name_aliases) -> {"1": {"client_normalized", "point_name",
+     "address_normalized"}, ...} — совместная нормализация пары
+     (client_raw, address_raw) одним вызовом (см. core/data/reconciler.py
+     и обсуждение в чате: раздельная нормализация не видит, что город/
+     бренд/юрлицо перепутаны между двумя полями одной строки).
    Оба батчевых метода при исчерпании ретраев бросают LLMCallError —
-   fetcher.py ловит именно этот тип и НЕ кэширует результат при ошибке.
-
-Все три файла реализованы и согласованы между собой по сигнатурам и путям
-(единая конвенция /app/... — см. core/data/categories.py и core/data/glossary.py).
+   fetcher.py обязан поймать её и НЕ кэшировать результат.
 =============================================================================
 """
 
@@ -46,7 +34,8 @@ import re
 import os
 from pathlib import Path
 from collections import defaultdict
-from typing import List, Dict, Any, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import List, Dict, Any, Optional, Tuple, Set
 import pandas as pd
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -80,9 +69,10 @@ TARGET_COLUMNS = [
     "event_group",
     "event_type",
     "client_raw",               # исходное название клиента
-    "client_normalized",         # нормализованное (без лишних слов, с уникальной частью)
+    "client_normalized",         # юрлицо/ФИО или пусто (никогда бренд — см. point_name)
     "address_raw",               # исходный адрес
-    "address_normalized",        # нормализованный с городом (по умолчанию Екатеринбург)
+    "address_normalized",        # только география, город без дефолта (см. reconciler)
+    "point_name",                 # НОВОЕ: коммерческое название точки (бренд/франшиза)
     "problem_raw",               # исходное описание проблемы
     "problem_normalized",        # краткое резюме (5-7 слов)
     "problem_tags",               # НОВОЕ: список категорий (1-3 тега на обращение)
@@ -143,6 +133,13 @@ MIN_LLM_DELAY = 1.0 / LLM_CALLS_PER_SECOND
 CATEGORY_FUZZY_THRESHOLD = 90
 PROBLEM_BATCH_SIZE = 100
 
+# Батч client+address (пары) и параллельность батчей. MAX_WORKERS скромный
+# осознанно — лимит API (2500 конкурентных соединений) далеко не узкое место,
+# число ограничено, чтобы не рисковать качеством/не гнаться за скоростью
+# сильнее, чем нужно (см. обсуждение в чате).
+CLIENT_ADDRESS_BATCH_SIZE = 100
+CLIENT_ADDRESS_MAX_WORKERS = 5
+
 
 class Fetcher:
     """
@@ -169,9 +166,14 @@ class Fetcher:
         # кэшируем в атрибутах, чтобы не пересобирать на каждый батч
         self.glossary = Glossary()
         self.categories = CategoriesManager()
-        self._glossary_prompt_text = self.glossary.to_prompt_text()
+        self._glossary_prompt_text = self.glossary.to_prompt_text()  # section="problem" по умолчанию
         self._categories_prompt_text = self.categories.to_prompt_text()
         self._category_names = self.categories.get_category_names()
+
+        # НОВОЕ: отдельный маленький блок глоссария (суб-бренды) для батча
+        # client+address — не весь технический словарь, см. Glossary.to_prompt_text
+        self._point_name_glossary_text = self.glossary.to_prompt_text(section="client_address")
+        self._point_name_aliases = self.glossary.alias_map(section="client_address")
 
         # =====================================================================
         # НОВОЕ: флаг очистки кэша (переменная окружения CLEAR_CACHE=true)
@@ -182,7 +184,7 @@ class Fetcher:
     def _clear_cache(self):
         """Полностью очищает кэш (удаляет JSON-файлы)."""
         cache_dir = Path("/app/cache")
-        for key in ["address", "client", "problem"]:
+        for key in ["client_address", "problem"]:
             path = cache_dir / f"{key}_mappings.json"
             if path.exists():
                 path.unlink()
@@ -195,12 +197,13 @@ class Fetcher:
         Загружает кэш маппингов из JSON-файлов.
 
         Формат значений разный по типам:
-        - address / client: {raw_lower: "нормализованная строка"}
-        - problem (НОВОЕ): {raw_lower: {"normalized": "...", "tags": [...]}}
+        - client_address (НОВОЕ, ключ f"{client_raw}||{address_raw}".lower()):
+          {"client_normalized": "...", "point_name": "...", "address_normalized": "..."}
+        - problem: {raw_lower: {"normalized": "...", "tags": [...]}}
         Сам метод загрузки/сохранения не зависит от формата значения — json
         одинаково хранит и строки, и словари, поэтому логика ниже не меняется.
         """
-        cache = {"address": {}, "client": {}, "problem": {}}
+        cache = {"client_address": {}, "problem": {}}
         cache_dir = Path("/app/cache")
         cache_dir.mkdir(exist_ok=True)
 
@@ -225,97 +228,113 @@ class Fetcher:
         logger.debug("💾 Кэш сохранён")
 
     # =========================================================================
-    # НОВОЕ: сбор уникальных значений для нормализации (теперь собираем сырые)
+    # ИЗМЕНЕНО: собираем уникальные ПАРЫ (client_raw, address_raw) вместо двух
+    # раздельных множеств значений — см. обсуждение в чате: раздельная
+    # нормализация не видит, что город/бренд/юрлицо перепутаны между полями
+    # одной строки. problem_raw остаётся отдельным множеством, как и раньше.
     # =========================================================================
-    def _collect_unique_values(self, rows: List[List[str]], mapping: Dict[str, int]) -> Dict[str, set]:
+    def _collect_unique_pairs(self, rows: List[List[str]], mapping: Dict[str, int]) -> Tuple[Set[Tuple[str, str]], set]:
         """
-        Собирает все уникальные сырые значения для полей, требующих нормализации.
-        Возвращает словарь {поле: set(уникальных значений)}
-        Поля: client_raw, address_raw, problem_raw
+        Возвращает (pairs, problem_values):
+          pairs — set уникальных (client_raw, address_raw); пара пропускается,
+            только если ОБА поля пусты (одно пустое — нормальный случай,
+            обрабатывается промптом как "(пусто)").
+          problem_values — set уникальных problem_raw, без изменений.
         """
-        unique = defaultdict(set)
-        fields_to_normalize = {"client_raw", "address_raw", "problem_raw"}
+        pairs: Set[Tuple[str, str]] = set()
+        problem_values: set = set()
 
-        for row in tqdm(rows, desc="📊 Сбор уникальных значений", leave=False):
-            for field in fields_to_normalize:
-                # В mapping лежат сырые поля (client_raw, address_raw, problem_raw)
-                if field in mapping:
-                    idx = mapping[field]
-                    if idx < len(row) and row[idx]:
-                        value = str(row[idx]).strip()
-                        if value:
-                            unique[field].add(value)
+        client_idx = mapping.get("client_raw")
+        address_idx = mapping.get("address_raw")
+        problem_idx = mapping.get("problem_raw")
 
-        return unique
+        for row in tqdm(rows, desc="📊 Сбор уникальных пар", leave=False):
+            if client_idx is not None or address_idx is not None:
+                client_val = str(row[client_idx]).strip() if client_idx is not None and client_idx < len(row) and row[client_idx] else ""
+                address_val = str(row[address_idx]).strip() if address_idx is not None and address_idx < len(row) and row[address_idx] else ""
+                if client_val or address_val:
+                    pairs.add((client_val, address_val))
+
+            if problem_idx is not None and problem_idx < len(row) and row[problem_idx]:
+                value = str(row[problem_idx]).strip()
+                if value:
+                    problem_values.add(value)
+
+        return pairs, problem_values
 
     # =========================================================================
-    # ИЗМЕНЕНО: нормализация батча client/address — теперь тот же паттерн,
-    # что и у _categorize_and_normalize_problems_batch: id→значение,
-    # dict-ответ от LLM (function calling), то что не пришло в ответе —
-    # НЕ кэшируем, оставляем на следующий запуск. Старый текстовый
-    # normalize_batch() (построчный парсинг + позиционный zip()) удалён из
-    # client.py — вызывающий код здесь уже не проверяет длину ответа,
-    # рассинхрон по количеству элементов больше структурно невозможен.
+    # НОВОЕ: совместная нормализация client+address по парам, параллельно по
+    # батчам (см. обсуждение в чате про потокобезопасность кэша): каждый
+    # воркер обрабатывает СВОЙ батч и возвращает {cache_key: результат} —
+    # ключ уже переведён из локального id ответа LLM в сам факт пары, так что
+    # результаты разных батчей не могут пересечься по ключу иначе как для
+    # буквально одинаковой пары. Запись в self.cache происходит только в
+    # главном потоке, последовательно, после завершения каждого future.
     # =========================================================================
-    def _normalize_batch(self, field_type: str, raw_values: set) -> Dict[str, str]:
+    def _normalize_client_address_worker(self, batch: List[Tuple[str, str]]) -> Dict[str, Dict[str, str]]:
+        """Обрабатывает один батч пар в отдельном потоке. Кэш не трогает."""
+        id_to_pair = {str(i + 1): pair for i, pair in enumerate(batch)}
+
+        response = self.llm_client.normalize_client_address_batch(
+            pairs=id_to_pair,
+            point_name_glossary_text=self._point_name_glossary_text,
+            point_name_aliases=self._point_name_aliases,
+        )
+
+        remapped: Dict[str, Dict[str, str]] = {}
+        for item_id, result in response.items():
+            pair = id_to_pair.get(item_id)
+            if pair is None:
+                # Модель вернула id, которого не было в запросе — защита от
+                # реального (пусть и редкого) риска, не должно случаться,
+                # но лучше пропустить с логом, чем упасть или перепутать пару.
+                logger.warning(f"⚠️ Модель вернула неожиданный id '{item_id}', не входивший в батч — пропускаем")
+                continue
+            client_raw, address_raw = pair
+            cache_key = f"{client_raw}||{address_raw}".lower()
+            remapped[cache_key] = result
+
+        return remapped
+
+    def _normalize_client_address_pairs(self, pairs: Set[Tuple[str, str]]):
         """
-        Нормализует пачку уникальных значений одного типа (client/address).
-        raw_values — уже отфильтрованы вызывающим кодом (_process_sheet) от
-        значений, которые есть в кэше, повторной проверки кэша здесь нет.
-        Возвращает {исходное_значение: нормализованное} — только для тех
-        значений, которые реально попали в кэш в этом вызове.
+        Нормализует пачку уникальных пар (client_raw, address_raw) —
+        батчами по CLIENT_ADDRESS_BATCH_SIZE, параллельно по
+        CLIENT_ADDRESS_MAX_WORKERS воркерам. Результат сразу пишется в
+        self.cache["client_address"] — вызывающий код читает из кэша, а не
+        из возврата этого метода (тот же паттерн, что был у _normalize_batch).
         """
-        if not raw_values:
-            return {}
+        if not pairs:
+            return
 
-        logger.info(f"🦙 Начинаем нормализацию {len(raw_values)} уникальных значений для поля '{field_type}'")
-        results: Dict[str, str] = {}
+        logger.info(f"🦙 Начинаем нормализацию {len(pairs)} уникальных пар client+address")
 
-        sorted_values = sorted(raw_values)
-        batch_size = 100
-        total_batches = (len(sorted_values) + batch_size - 1) // batch_size
+        sorted_pairs = sorted(pairs)
+        batch_size = CLIENT_ADDRESS_BATCH_SIZE
+        batches = [sorted_pairs[i:i + batch_size] for i in range(0, len(sorted_pairs), batch_size)]
 
-        for batch_idx in range(total_batches):
-            start = batch_idx * batch_size
-            end = min(start + batch_size, len(sorted_values))
-            batch = sorted_values[start:end]
+        with ThreadPoolExecutor(max_workers=CLIENT_ADDRESS_MAX_WORKERS) as executor:
+            future_to_idx = {
+                executor.submit(self._normalize_client_address_worker, batch): idx
+                for idx, batch in enumerate(batches)
+            }
 
-            # id локальный для этого вызова (не завязан на позицию в батче
-            # содержательно — просто ключ для сопоставления с ответом LLM)
-            id_to_value = {str(i + 1): val for i, val in enumerate(batch)}
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    remapped = future.result()
+                except LLMCallError as e:
+                    logger.error(f"❌ Ошибка при нормализации батча client+address #{idx+1}: {e}")
+                    # Ничего не кэшируем — батч останется "трудным остатком"
+                    # и будет повторно обработан при следующем запуске.
+                    continue
 
-            try:
-                response = self.llm_client.normalize_batch_dict(
-                    items=id_to_value,
-                    field_type=field_type,
-                )
                 self.stats["llm_calls"] += 1
+                self.cache["client_address"].update(remapped)
+                logger.debug(f"    ✅ батч #{idx+1}/{len(batches)}: обработано {len(remapped)} пар")
+                self._save_cache()
 
-                for item_id, val in id_to_value.items():
-                    if item_id in response:
-                        normalized = response[item_id]
-                        results[val] = normalized
-                        self.cache[field_type][val.lower()] = normalized
-                        logger.debug(f"    ✅ {field_type}: '{val[:30]}...' -> '{normalized[:30]}...'")
-                    else:
-                        # Модель потеряла пункт — НЕ кэшируем мусор, оставляем
-                        # значение необработанным до следующего запуска.
-                        logger.warning(f"⚠️ LLM не вернула ответ для пункта {item_id} ('{val[:40]}...'), "
-                                       f"пропускаем без кэширования")
-
-            except LLMCallError as e:
-                logger.error(f"❌ Ошибка при нормализации батча '{field_type}': {e}")
-                # Ничего не кэшируем — весь батч останется "трудным остатком"
-                # и будет повторно обработан при следующем запуске.
-
-            if batch_idx < total_batches - 1:
-                time.sleep(MIN_LLM_DELAY)
-
-            self._save_cache()
-            logger.debug(f"💾 Кэш сохранён после батча {batch_idx+1}/{total_batches}")
-
-        logger.info(f"✅ Нормализация поля '{field_type}' завершена. Вызовов LLM: {self.stats['llm_calls']}")
-        return results
+        logger.info(f"✅ Нормализация client+address завершена. Вызовов LLM: {self.stats['llm_calls']}")
 
     # =========================================================================
     # НОВОЕ: Слой 1 — детерминированный fuzzy-матч сырого текста с названиями
@@ -455,40 +474,45 @@ class Fetcher:
         return results
 
     # =========================================================================
-    # ИЗМЕНЕНО: быстрая нормализация с кэшем для client/address (без изменений)
+    # ИЗМЕНЕНО: быстрая нормализация с кэшем — теперь по ПАРЕ (client_raw,
+    # address_raw), возвращает сразу все три поля одним словарём.
     # =========================================================================
-    def _normalize_with_cache(self, raw_value: str, field_type: str) -> str:
+    def _normalize_pair_with_cache(self, client_raw: str, address_raw: str) -> Dict[str, str]:
         """
-        Быстрая нормализация с использованием только кэша (без вызова LLM).
-        field_type: 'client' или 'address' (для 'problem' — см.
-        _normalize_with_cache_problem ниже).
-        Возвращает нормализованную строку (если нет в кэше — логируем и возвращаем сырую)
+        Быстрая нормализация пары с использованием только кэша (без вызова
+        LLM). Возвращает {"client_normalized", "point_name", "address_normalized"}.
+        Если пары нет в кэше (редкий случай, например кэш почистили в
+        процессе работы) — делает одиночный вызов (батч из одной пары).
         """
-        if not raw_value or not isinstance(raw_value, str):
-            return ""
+        empty = {"client_normalized": "", "point_name": "", "address_normalized": ""}
+        if not client_raw and not address_raw:
+            return empty
 
-        key = raw_value.strip().lower()
-        cached = self.cache[field_type].get(key)
+        key = f"{client_raw}||{address_raw}".lower()
+        cached = self.cache["client_address"].get(key)
 
         if cached:
             self.stats["cache_hits"] += 1
             return cached
         else:
-            # Если вдруг значение не нашлось в кэше (например, после очистки кэша в процессе работы)
-            # Это маловероятно, но на всякий случай делаем одиночный вызов.
+            # Маловероятно, но на всякий случай делаем одиночный вызов.
             self.stats["llm_calls"] += 1
-            logger.warning(f"⚠️ Значение '{raw_value}' не найдено в кэше, вызываем LLM на лету")
+            logger.warning(f"⚠️ Пара '{client_raw[:30]}...' | '{address_raw[:30]}...' не найдена в кэше, вызываем LLM на лету")
             try:
-                normalized = self.llm_client.normalize(raw_value, field_type)
-                self.cache[field_type][key] = normalized
-                time.sleep(MIN_LLM_DELAY)
-                return normalized
+                response = self.llm_client.normalize_client_address_batch(
+                    pairs={"1": (client_raw, address_raw)},
+                    point_name_glossary_text=self._point_name_glossary_text,
+                    point_name_aliases=self._point_name_aliases,
+                )
+                result = response.get("1", empty)
+                self.cache["client_address"][key] = result
+                return result
             except LLMCallError as e:
-                # Не кэшируем и не роняем обработку всего листа из-за одного
-                # значения — строка получит сырой текст вместо нормализованного,
-                # а на следующем прогоне (значения нет в кэше) попытка повторится.
-                logger.error(f"❌ Ошибка при одиночной нормализации '{raw_value[:40]}...': {e}")
-                return raw_value
+                # Не кэшируем и не роняем обработку всего листа из-за одной
+                # пары — строка получит пустые нормализованные поля, а на
+                # следующем прогоне (пары нет в кэше) попытка повторится.
+                logger.error(f"❌ Ошибка при одиночной нормализации пары: {e}")
+                return empty
 
     # =========================================================================
     # НОВОЕ: быстрая нормализация+категоризация проблемы с использованием
@@ -683,41 +707,27 @@ class Fetcher:
             return
 
         # =====================================================================
-        # ЭТАП 1: собираем уникальные сырые значения для LLM
+        # ЭТАП 1: собираем уникальные пары (client_raw, address_raw) + problem_raw
         # =====================================================================
-        logger.info(f"🔍 Сбор уникальных значений для {sheet_name}...")
-        unique_raw_values = self._collect_unique_values(data_rows, mapping)
-        # unique_raw_values содержит ключи: client_raw, address_raw, problem_raw
+        logger.info(f"🔍 Сбор уникальных пар для {sheet_name}...")
+        unique_pairs, unique_problems = self._collect_unique_pairs(data_rows, mapping)
 
         # =====================================================================
-        # ЭТАП 2: нормализуем пачками с задержками
+        # ЭТАП 2: нормализуем пачками (client+address параллельно, problem — слой 1+2)
         # =====================================================================
-        # Для каждого типа поля нормализуем сырые значения
-        # field_type в кэше: 'client', 'address', 'problem'
-        field_type_map = {
-            "client_raw": "client",
-            "address_raw": "address",
-            "problem_raw": "problem"
-        }
+        pairs_to_normalize = {p for p in unique_pairs if f"{p[0]}||{p[1]}".lower() not in self.cache["client_address"]}
+        if pairs_to_normalize:
+            logger.info(f"📦 Нужно нормализовать {len(pairs_to_normalize)} новых пар client+address")
+            self._normalize_client_address_pairs(pairs_to_normalize)
+        else:
+            logger.info("✅ Все пары client+address уже есть в кэше")
 
-        for raw_field, field_type in field_type_map.items():
-            if raw_field in unique_raw_values and unique_raw_values[raw_field]:
-                # Проверяем, каких сырых значений нет в кэше
-                values_to_normalize = set()
-                for val in unique_raw_values[raw_field]:
-                    if val.lower() not in self.cache[field_type]:
-                        values_to_normalize.add(val)
-
-                if values_to_normalize:
-                    logger.info(f"📦 Для поля '{field_type}' нужно нормализовать {len(values_to_normalize)} новых значений")
-                    # ИЗМЕНЕНО: для проблем — отдельный метод (слой 1 + слой 2 с dict-форматом),
-                    # для client/address — прежняя логика без изменений
-                    if field_type == "problem":
-                        self._categorize_and_normalize_problems_batch(values_to_normalize)
-                    else:
-                        self._normalize_batch(field_type, values_to_normalize)
-                else:
-                    logger.info(f"✅ Все значения поля '{field_type}' уже есть в кэше")
+        problems_to_normalize = {v for v in unique_problems if v.lower() not in self.cache["problem"]}
+        if problems_to_normalize:
+            logger.info(f"📦 Нужно нормализовать {len(problems_to_normalize)} новых проблем")
+            self._categorize_and_normalize_problems_batch(problems_to_normalize)
+        else:
+            logger.info("✅ Все проблемы уже есть в кэше")
 
         # =====================================================================
         # ЭТАП 3: обрабатываем строки с использованием кэша
@@ -735,7 +745,28 @@ class Fetcher:
             record["_table_name"] = table_name
             record["_sheet_name"] = sheet_name
 
+            # НОВОЕ: client_raw и address_raw обрабатываются СОВМЕСТНО, ДО
+            # общего цикла по mapping — нормализация идёт по паре одним
+            # поиском в кэше, а не двумя независимыми (см. обсуждение в чате).
+            client_idx = mapping.get("client_raw")
+            address_idx = mapping.get("address_raw")
+            client_val = str(row[client_idx]).strip() if client_idx is not None and client_idx < len(row) and row[client_idx] else ""
+            address_val = str(row[address_idx]).strip() if address_idx is not None and address_idx < len(row) and row[address_idx] else ""
+            record["client_raw"] = client_val
+            record["address_raw"] = address_val
+            if client_val or address_val:
+                pair_result = self._normalize_pair_with_cache(client_val, address_val)
+                record["client_normalized"] = pair_result.get("client_normalized", "")
+                record["point_name"] = pair_result.get("point_name", "")
+                record["address_normalized"] = pair_result.get("address_normalized", "")
+            else:
+                record["client_normalized"] = ""
+                record["point_name"] = ""
+                record["address_normalized"] = ""
+
             for target, idx in mapping.items():
+                if target in ("client_raw", "address_raw"):
+                    continue  # уже обработано выше
                 if idx >= len(row):
                     continue
                 value = row[idx] if row[idx] is not None else ""
@@ -757,26 +788,6 @@ class Fetcher:
                     else:
                         record["problem_normalized"] = ""
                         record["problem_tags"] = []
-                elif target in ("client_raw", "address_raw"):
-                    # Сохраняем сырое значение
-                    record[target] = value.strip() if isinstance(value, str) else value
-
-                    # Определяем тип для нормализации
-                    if target == "client_raw":
-                        norm_field = "client_normalized"
-                        cache_type = "client"
-                    elif target == "address_raw":
-                        norm_field = "address_normalized"
-                        cache_type = "address"
-                    else:
-                        continue
-
-                    # Получаем нормализованное значение из кэша
-                    if value and isinstance(value, str):
-                        normalized = self._normalize_with_cache(value, cache_type)
-                        record[norm_field] = normalized
-                    else:
-                        record[norm_field] = ""
                 else:
                     # status, event_group, assignee, author
                     record[target] = value.strip() if isinstance(value, str) else value

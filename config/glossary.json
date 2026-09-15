@@ -123,5 +123,20 @@
   "под закон": {
     "meaning": "",
     "aliases": []
+  },
+  "Пивко Проф": {
+    "meaning": "суб-бренд франшизы Пивко",
+    "aliases": ["проф"],
+    "section": "client_address"
+  },
+  "Пивко Франшиза": {
+    "meaning": "суб-бренд франшизы Пивко",
+    "aliases": ["франч", "франшиза"],
+    "section": "client_address"
+  },
+  "Пивко Инвест": {
+    "meaning": "суб-бренд франшизы Пивко",
+    "aliases": ["инвест"],
+    "section": "client_address"
   }
 }

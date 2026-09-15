@@ -258,18 +258,29 @@ def recompute_point_key(df: pd.DataFrame) -> pd.DataFrame:
     Векторизованный пересчёт point_key после реконсиляции client_normalized
     и address_normalized. Логика повторяет прежнюю построчную версию из
     fetcher._process_sheet (client | address, с фоллбэком на одно из полей).
+
+    НОВОЕ (см. обсуждение в чате): если client_normalized пуст (стандартный
+    случай для точек без юрлица в сырых данных, например "Пивко Франшиза" —
+    это point_name, не клиент), в качестве "идентифицирующей" части ключа
+    подставляется point_name вместо client_normalized. Иначе такие точки
+    схлопывались бы в голый адрес и переставали различаться по бренду.
+    Колонки client_normalized/point_name при этом НЕ модифицируются — это
+    чистая сборка производной строки, а не реконсиляция/слияние.
     """
     df = df.copy()
     client = df.get('client_normalized', pd.Series('', index=df.index)).fillna('')
+    point_name = df.get('point_name', pd.Series('', index=df.index)).fillna('')
     addr = df.get('address_normalized', pd.Series('', index=df.index)).fillna('')
 
-    both = (client != '') & (addr != '')
-    only_client = (client != '') & (addr == '')
-    only_addr = (client == '') & (addr != '')
+    identity = client.where(client != '', point_name)
+
+    both = (identity != '') & (addr != '')
+    only_identity = (identity != '') & (addr == '')
+    only_addr = (identity == '') & (addr != '')
 
     point_key = pd.Series(None, index=df.index, dtype=object)
-    point_key[both] = client[both] + ' | ' + addr[both]
-    point_key[only_client] = client[only_client]
+    point_key[both] = identity[both] + ' | ' + addr[both]
+    point_key[only_identity] = identity[only_identity]
     point_key[only_addr] = addr[only_addr]
 
     df['point_key'] = point_key
