@@ -4,14 +4,40 @@ services:
   agent:
     build: .
     container_name: excel-agent
-    ports:
-      - "8501:8501"
+    # ВАЖНО: expose, а НЕ ports. expose открывает порт только внутри
+    # docker-сети — для Caddy. Если вернуть "ports: 8501:8501", приложение
+    # снова станет доступно напрямую по IP:8501 в обход логина и TLS, то есть
+    # дыра будет стоять рядом с аккуратно настроенным прокси.
+    expose:
+      - "8501"
     volumes:
-      - ./core:/app/core               
-      - ./config:/app/config          
-      - ./credentials:/app/credentials:ro  
-      - ./cache:/app/cache            
-      - ./logs:/app/logs              
-    env_file:  
-      - .env   
+      - ./core:/app/core
+      - ./config:/app/config
+      - ./credentials:/app/credentials:ro
+      - ./cache:/app/cache
+      - ./logs:/app/logs
+    env_file:
+      - .env
     restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    container_name: excel-agent-caddy
+    ports:
+      - "80:80"      # нужен и после выпуска: продление + редирект на https
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # caddy_data хранит выпущенные сертификаты. Именно именованный том:
+      # без него каждый перезапуск заказывал бы сертификат заново, а у
+      # Let's Encrypt лимит 5 штук на домен в неделю — можно остаться без
+      # https на несколько дней.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - agent
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

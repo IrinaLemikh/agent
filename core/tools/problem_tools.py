@@ -33,7 +33,7 @@ import json
 import pandas as pd
 from typing import Dict, Any, Optional, List
 from loguru import logger
-from .utils import get_preview_columns, format_answer, filter_by_date
+from .utils import build_preview, format_answer, filter_by_date
 from core.llm.client import DeepSeekClient
 from core.llm.prompts import TASK_SELECT_PROBLEMS
 
@@ -229,12 +229,7 @@ def search_problem(df: pd.DataFrame,
     summary = f"Проблема '{problem_query}': {total} обращений, {clients_count} клиентов"
     answer = f"Обращения по проблеме '{problem_query}':\nВсего обращений: {total}\nКлиентов: {clients_count}"
 
-    avail_cols, ru_names = get_preview_columns(filtered_df)
-    if avail_cols:
-        preview = filtered_df[avail_cols].sort_values('date', ascending=False).reset_index(drop=True)
-        preview.columns = [ru_names.get(col, col) for col in avail_cols]
-    else:
-        preview = pd.DataFrame()
+    preview = build_preview(filtered_df)
 
     return format_answer(
         summary=summary,
@@ -288,12 +283,7 @@ def search_problem_by_date(df: pd.DataFrame,
     summary = f"Проблема '{problem_query}' {period_desc}: {total} обращений"
     answer = f"Обращения по проблеме '{problem_query}' {period_desc}:\nВсего: {total}, последнее {last_date}"
 
-    avail_cols, ru_names = get_preview_columns(filtered_df)
-    if avail_cols:
-        preview = filtered_df[avail_cols].sort_values('date', ascending=False).reset_index(drop=True)
-        preview.columns = [ru_names.get(col, col) for col in avail_cols]
-    else:
-        preview = pd.DataFrame()
+    preview = build_preview(filtered_df)
 
     return format_answer(
         summary=summary,

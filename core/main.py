@@ -3,6 +3,7 @@ from pathlib import Path
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+from loguru import logger
 
 # Добавляем корень проекта в пути поиска Python
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -11,9 +12,55 @@ from core.data.loader import DataLoader
 from core.data.indexer import SheetIndex
 from core.llm.client import DeepSeekClient
 from core.dispatcher import AgentDispatcher
-from core.data.fetcher import Fetcher
+from core.data.fetcher import Fetcher, ProcessingCancelled
 from core.utils.dialog_logger import dialog_logger
 from core.utils.docs import WHATSNEW, ABOUT_SYSTEM
+
+
+def make_cancel_check():
+    """
+    Возвращает функцию-проверку для Fetcher: она молчит, пока жива сессия,
+    запустившая обработку, и бросает ProcessingCancelled, когда сессия
+    закрылась (страница обновлена или вкладка закрыта).
+
+    Зачем. Streamlit выполняет скрипт в отдельном потоке сессии и умеет
+    останавливать его только на вызовах st.*, а внутри fetch_all их нет
+    вообще. Поэтому после обновления страницы старый поток продолжал жечь
+    вызовы LLM, и остановить его можно было только убив контейнер.
+
+    Как. При обновлении страницы браузер поднимает новое соединение и
+    получает НОВУЮ сессию, а прежняя перестаёт быть активной — это и есть
+    сигнал "результата больше никто не ждёт". id сессии захватывается
+    здесь, в главном потоке, где контекст Streamlit точно доступен.
+
+    Если внутренний API Streamlit окажется другим (версия старше/новее),
+    возвращаем заглушку: поведение останется прежним, но приложение не
+    упадёт из-за вспомогательной функции.
+    """
+    try:
+        from streamlit.runtime import get_instance
+        from streamlit.runtime.scriptrunner import get_script_run_ctx
+
+        ctx = get_script_run_ctx()
+        if ctx is None:
+            return lambda: None
+        session_id = ctx.session_id
+    except Exception as e:
+        logger.warning(f"Прерывание обработки недоступно: {e}")
+        return lambda: None
+
+    def check():
+        try:
+            alive = get_instance().is_active_session(session_id=session_id)
+        except Exception as e:
+            # Не знаем наверняка — считаем, что сессия жива. Ложное
+            # прерывание хуже, чем лишняя минута работы.
+            logger.debug(f"Не удалось проверить статус сессии: {e}")
+            return
+        if not alive:
+            raise ProcessingCancelled("Сессия закрыта — прерываю обработку")
+
+    return check
 
 # Настройка страницы
 st.set_page_config(
@@ -36,6 +83,12 @@ st.markdown("""
         color: #0f0f0f !important;
         margin-top: 1.5rem !important;
         margin-bottom: 0.5rem !important;
+    }
+    /* Подписи кнопок не переносим: кнопка тянется ровно по длине текста
+       в одну строку (ширину задаёт содержимое, см. use_container_width=False
+       у кнопок ниже — колонка только ограничивает максимум) */
+    .stButton > button {
+        white-space: nowrap !important;
     }
     .stButton > button[kind="primary"] {
         background: linear-gradient(45deg, #FF8C00, #FF4500) !important;
@@ -126,13 +179,16 @@ if 'message_reactions' not in st.session_state:
     st.session_state.message_reactions = {}  # ключ — индекс сообщения
 
 # --- КНОПКИ УПРАВЛЕНИЯ ---
-col1, col2, col_empty = st.columns([2.2, 1.3, 8.5])
+# Колонки дают кнопкам запас по ширине, а сами кнопки тянутся по своему
+# тексту (use_container_width=False) — поэтому подпись не переносится
+# и кнопка не раздувается на всю колонку.
+col1, col2, col_empty = st.columns([3.2, 1.6, 7.2])
 
 with col1:
-    if st.button("Обновить данные из Google Sheets", type="primary", use_container_width=True):
+    if st.button("Обновить данные из Google Sheets", type="primary", use_container_width=False):
         with st.spinner("Обновление таблиц и загрузка данных..."):
             try:
-                fetcher = Fetcher()
+                fetcher = Fetcher(cancel_check=make_cancel_check())
                 fetcher.fetch_all()
                 st.session_state.indexer.load()
                 if st.session_state.indexer.get_all_sheets():
@@ -146,11 +202,16 @@ with col1:
                     st.success("Данные успешно обновлены!")
                 else:
                     st.warning("Индекс загружен, но не содержит листов. Возможно, нет данных.")
+            except ProcessingCancelled:
+                # Сессия уже закрыта, показывать сообщение некому — просто
+                # выходим тихо и пишем в лог контейнера. Кэш нормализации
+                # сохранён по батчам, parquet не тронут.
+                logger.info("⏹️ Обновление данных прервано: страница обновлена или закрыта")
             except Exception as e:
                 st.error(f"Ошибка при обновлении данных: {e}")
 
 with col2:
-    if st.button("✨ Что нового", use_container_width=True):
+    if st.button("✨ Что нового", use_container_width=False):
         st.session_state.show_whatsnew = not st.session_state.get('show_whatsnew', False)
 
 # Показываем "Что нового" если нажато

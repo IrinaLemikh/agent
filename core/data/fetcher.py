@@ -140,12 +140,38 @@ PROBLEM_BATCH_SIZE = 100
 CLIENT_ADDRESS_BATCH_SIZE = 100
 CLIENT_ADDRESS_MAX_WORKERS = 5
 
+# Сколько строк обрабатываем между проверками на прерывание в ЭТАПЕ 3
+CANCEL_CHECK_EVERY_ROWS = 500
+
+
+class ProcessingCancelled(Exception):
+    """
+    Прогон прерван снаружи — например, пользователь обновил страницу и
+    сессия Streamlit, запустившая обработку, закрылась.
+
+    Прерывание кооперативное: Fetcher сам зовёт cancel_check() в заранее
+    размеченных местах (между листами, между батчами, раз в
+    CANCEL_CHECK_EVERY_ROWS строк), потому что убить поток снаружи Python
+    не умеет, а внутри fetch_all нет ни одного вызова st.*, на котором
+    Streamlit мог бы остановить скрипт сам.
+
+    Прерывать в этих точках безопасно: кэш нормализации сохраняется после
+    каждого батча, а parquet перезаписывается только в самом конце
+    fetch_all. Прерванный прогон теряет время, но не данные — следующий
+    запуск подхватит кэш и продолжит почти с того же места.
+    """
+
 
 class Fetcher:
     """
     Класс для загрузки и нормализации всех данных из Google Sheets.
     """
-    def __init__(self):
+    def __init__(self, cancel_check=None):
+        # cancel_check — функция без аргументов, бросающая ProcessingCancelled,
+        # если продолжать больше не нужно. Собирается на стороне UI
+        # (см. core/main.py), чтобы fetcher ничего не знал про Streamlit.
+        # По умолчанию — заглушка: консольный запуск ничем не прерывается.
+        self._cancel_check = cancel_check if callable(cancel_check) else (lambda: None)
         self.discovery = TableDiscovery()
         self.llm_client = DeepSeekClient()
         self.cache = self._load_cache()
@@ -320,6 +346,16 @@ class Fetcher:
             }
 
             for future in as_completed(future_to_idx):
+                # Точка прерывания: батчи здесь самые долгие, и продолжать
+                # их, когда результата уже никто не ждёт, дороже всего
+                try:
+                    self._cancel_check()
+                except ProcessingCancelled:
+                    logger.warning("⏹️ Обработка прервана — отменяю оставшиеся батчи client+address")
+                    for pending in future_to_idx:
+                        pending.cancel()
+                    raise
+
                 idx = future_to_idx[future]
                 try:
                     remapped = future.result()
@@ -361,6 +397,18 @@ class Fetcher:
         перед повторным поднятием порога.
 
         Возвращает название категории при уверенном совпадении, иначе None.
+
+        БАГ-ФИКС (найден на реальных данных, см. обсуждение в чате): при
+        строгом "score > best_score" победитель при ничьей — первая по
+        порядку в categories.json категория, а не более специфичная. Реальный
+        случай: "Сканер: некорректная работа" и "Сканер: некорректная работа
+        (повторные обращения)" — сырой текст, дословно совпадающий со ВТОРЫМ
+        (более специфичным) названием, давал token_set_ratio=100 против ОБОИХ
+        одновременно (второе название полностью содержит токены первого), и
+        побеждала короткая категория просто потому что шла раньше в списке.
+        Теперь при равном счёте побеждает БОЛЕЕ ДЛИННОЕ название — оно как
+        правило более специфичное (например, содержит уточняющую пометку в
+        скобках), а не более общее.
         """
         if not problem_raw or not isinstance(problem_raw, str):
             return None
@@ -369,7 +417,7 @@ class Fetcher:
         best_score = 0
         for category_name in self._category_names:
             score = fuzz.token_set_ratio(problem_raw, category_name)
-            if score > best_score:
+            if score > best_score or (score == best_score and best_match and len(category_name) > len(best_match)):
                 best_score = score
                 best_match = category_name
 
@@ -424,6 +472,8 @@ class Fetcher:
         total_batches = (len(remaining) + PROBLEM_BATCH_SIZE - 1) // PROBLEM_BATCH_SIZE
 
         for batch_idx in range(total_batches):
+            self._cancel_check()  # точка прерывания между батчами проблем
+
             start = batch_idx * PROBLEM_BATCH_SIZE
             end = min(start + PROBLEM_BATCH_SIZE, len(remaining))
             batch = remaining[start:end]
@@ -737,6 +787,11 @@ class Fetcher:
         rows_skipped = 0
 
         for i, row in enumerate(tqdm(data_rows, desc=f"📝 Обработка строк {sheet_name}", leave=False)):
+            # Точка прерывания: сами строки быстрые (всё уже в кэше), но
+            # на большом листе цикл всё равно идёт заметное время
+            if i % CANCEL_CHECK_EVERY_ROWS == 0:
+                self._cancel_check()
+
             if not row or all(not cell for cell in row):
                 rows_skipped += 1
                 continue
@@ -844,6 +899,10 @@ class Fetcher:
                     sheet_name = sheet["name"]
                     pbar.set_description(f"📑 {table_name}/{sheet_name}")
 
+                    # Точка прерывания перед каждым листом — самый дешёвый
+                    # момент выйти, ещё до похода в Google Sheets API
+                    self._cancel_check()
+
                     try:
                         # Читаем данные листа через Sheets API
                         credentials = self.discovery.get_credentials()
@@ -854,6 +913,11 @@ class Fetcher:
                         ).execute()
                         rows = result.get('values', [])
                         self._process_sheet(table_name, sheet_name, rows)
+                    except ProcessingCancelled:
+                        # ОБЯЗАТЕЛЬНО выше общего except Exception, иначе
+                        # прерывание будет проглочено как "ошибка листа"
+                        # и цикл спокойно поедет на следующий лист
+                        raise
                     except HttpError as e:
                         logger.error(f"❌ Ошибка при чтении листа {table_name}/{sheet_name}: {e}")
                     except Exception as e:

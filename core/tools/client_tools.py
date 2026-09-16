@@ -5,7 +5,7 @@
 
 import pandas as pd
 from typing import Dict, Any, Optional
-from .utils import get_preview_columns, format_answer, filter_by_date
+from .utils import build_preview, brands_by_group, format_answer, filter_by_date
 
 
 def get_top_clients(df: pd.DataFrame,
@@ -26,10 +26,10 @@ def get_top_clients(df: pd.DataFrame,
     counts.columns = ['Клиент', 'Количество обращений']
 
     if n > 0:
-        result = counts.head(n)
+        result = counts.head(n).copy()
         mode_desc = f"Топ {min(n, len(result))} клиентов"
     else:
-        result = counts[counts['Количество обращений'] > min_tickets]
+        result = counts[counts['Количество обращений'] > min_tickets].copy()
         mode_desc = f"Клиенты с более чем {min_tickets} обращениями"
 
     if result.empty:
@@ -37,6 +37,11 @@ def get_top_clients(df: pd.DataFrame,
             summary=f"{mode_desc}: не найдено.",
             answer=f"{mode_desc}: не найдено."
         )
+
+    # Названия точек (бренды) клиента — у одного юрлица их может быть
+    # несколько, поэтому склеиваем через запятую (см. brands_by_group)
+    brands = brands_by_group(df, 'client_normalized')
+    result.insert(1, 'Название точки', result['Клиент'].map(brands).fillna('—'))
 
     # Добавляем порядковый номер
     result.insert(0, '№', range(1, len(result) + 1))
@@ -91,12 +96,9 @@ def search_client(df: pd.DataFrame,
     answer = f"Все обращения клиента '{client_name}': {total} шт.\nПоследнее: {last_date}\n\n{problems_str}"
 
     # Формируем таблицу
-    avail_cols, ru_names = get_preview_columns(client_df)
-    if not avail_cols:
+    preview = build_preview(client_df)
+    if preview.empty:
         return format_answer(summary=summary, answer=answer)
-
-    preview = client_df[avail_cols].sort_values('date', ascending=False).reset_index(drop=True)
-    preview.columns = [ru_names.get(col, col) for col in avail_cols]
 
     return format_answer(
         summary=summary,
@@ -151,12 +153,7 @@ def search_client_by_date(df: pd.DataFrame,
     summary = f"Клиент '{client_name}' {period_desc}: {total} обращений"
     answer = f"Обращения клиента '{client_name}' {period_desc}:\nВсего: {total}, последнее {last_date}"
 
-    avail_cols, ru_names = get_preview_columns(filtered_df)
-    if avail_cols:
-        preview = filtered_df[avail_cols].sort_values('date', ascending=False).reset_index(drop=True)
-        preview.columns = [ru_names.get(col, col) for col in avail_cols]
-    else:
-        preview = pd.DataFrame()
+    preview = build_preview(filtered_df)
 
     return format_answer(
         summary=summary,

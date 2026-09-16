@@ -6,7 +6,7 @@
 import pandas as pd
 from typing import Dict, Any, Optional
 from loguru import logger
-from .utils import get_preview_columns, format_answer
+from .utils import build_preview, format_answer
 from .client_tools import search_client
 from .point_tools import search_point
 from .problem_tools import _filter_by_problem_query
@@ -77,12 +77,7 @@ def search_combined(df: pd.DataFrame,
     summary = f"{entity_type} '{entity_desc}', проблема '{problem_query}': {total} обращений"
     answer = f"Обращения {entity_type} '{entity_desc}' с проблемой '{problem_query}':\nВсего: {total}, последнее: {last_date}"
 
-    avail_cols, ru_names = get_preview_columns(prob_filtered)
-    if avail_cols:
-        preview = prob_filtered[avail_cols].sort_values('date', ascending=False).reset_index(drop=True)
-        preview.columns = [ru_names.get(col, col) for col in avail_cols]
-    else:
-        preview = pd.DataFrame()
+    preview = build_preview(prob_filtered)
 
     return format_answer(
         summary=summary,

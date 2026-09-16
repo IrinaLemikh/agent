@@ -21,25 +21,104 @@ def parse_date(date_str: str) -> pd.Timestamp:
         return pd.NaT
 
 
+# Чем заполняем пустые ячейки в таблицах для UI. Актуально в первую очередь
+# для point_name: бренд есть далеко не у каждой точки, и пустая ячейка
+# читается хуже, чем явный прочерк.
+EMPTY_PLACEHOLDER = '—'
+
+
 def get_preview_columns(df: pd.DataFrame) -> Tuple[List[str], Dict[str, str]]:
     """
     Возвращает список колонок, доступных в df для отображения в таблице,
     и словарь русских названий.
     """
     standard_cols = [
-        'date', 'ticket_id', 'client_normalized', 'address_normalized',
-        'problem_normalized', 'status'
+        'date', 'ticket_id', 'client_normalized', 'point_name',
+        'address_normalized', 'problem_normalized', 'status'
     ]
     ru_names = {
         'date': 'Дата',
         'ticket_id': 'Номер тикета',
         'client_normalized': 'Клиент',
+        'point_name': 'Название точки',
         'address_normalized': 'Адрес',
         'problem_normalized': 'Проблема',
         'status': 'Статус'
     }
     available = [col for col in standard_cols if col in df.columns]
     return available, ru_names
+
+
+def build_preview(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Собирает готовую к показу таблицу обращений — единая точка для всех
+    инструментов, которые выводят список обращений (search_client,
+    search_point, search_problem и их date-версии, search_combined).
+
+    Делает три вещи: выбирает стандартные колонки, сортирует по дате
+    (свежие сверху), подставляет прочерк вместо пустых значений и
+    переименовывает колонки на русский.
+
+    Раньше этот блок был скопирован в семь мест, и добавление колонки
+    требовало семи одинаковых правок.
+    """
+    avail_cols, ru_names = get_preview_columns(df)
+    if not avail_cols:
+        return pd.DataFrame()
+
+    preview = df[avail_cols].copy()
+
+    # sort_values('date') раньше вызывался безусловно и упал бы на листе,
+    # где колонки date нет вовсе (а get_preview_columns её тогда не вернёт)
+    if 'date' in preview.columns:
+        preview = preview.sort_values('date', ascending=False)
+    preview = preview.reset_index(drop=True)
+
+    # Прочерк вместо пустых значений. Дату сознательно не трогаем — иначе
+    # колонка станет строковой и потеряет формат в таблице.
+    for col in preview.columns:
+        if col == 'date':
+            continue
+        preview[col] = (
+            preview[col].fillna('').astype(str).str.strip()
+            .replace('', EMPTY_PLACEHOLDER)
+        )
+
+    preview.columns = [ru_names.get(col, col) for col in avail_cols]
+    return preview
+
+
+def brands_by_group(df: pd.DataFrame, key_col: str, max_items: int = 3) -> pd.Series:
+    """
+    Для каждого значения key_col собирает непустые названия точек (point_name)
+    в одну строку. Нужен для агрегатов: у одного клиента может быть несколько
+    брендов, у одной точки — в норме один.
+
+    Показываем до max_items уникальных названий, остальные сворачиваем в "+N",
+    чтобы ячейка не растягивала таблицу.
+
+    Возвращает Series, индексированную значениями key_col (клиентом или
+    point_key). Пустая Series, если колонки point_name нет или бренды не
+    заполнены ни у кого — вызывающий код тогда просто проставит прочерки.
+    """
+    if 'point_name' not in df.columns or key_col not in df.columns:
+        return pd.Series(dtype=object)
+
+    tmp = df[[key_col, 'point_name']].copy()
+    tmp['point_name'] = tmp['point_name'].fillna('').astype(str).str.strip()
+    tmp = tmp[tmp['point_name'] != '']
+    if tmp.empty:
+        return pd.Series(dtype=object)
+
+    def _join(series) -> str:
+        # dict.fromkeys — уникальные значения с сохранением порядка появления
+        names = list(dict.fromkeys(series))
+        head = names[:max_items]
+        rest = len(names) - len(head)
+        text = ', '.join(head)
+        return f"{text} +{rest}" if rest > 0 else text
+
+    return tmp.groupby(key_col)['point_name'].agg(_join)
 
 
 def format_answer(

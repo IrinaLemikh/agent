@@ -5,7 +5,7 @@
 
 import pandas as pd
 from typing import Dict, Any, Optional
-from .utils import get_preview_columns, format_answer, filter_by_date
+from .utils import build_preview, brands_by_group, format_answer, filter_by_date
 
 
 def get_top_points(df: pd.DataFrame,
@@ -26,10 +26,10 @@ def get_top_points(df: pd.DataFrame,
     counts.columns = ['Торговая точка', 'Количество обращений']
 
     if n > 0:
-        result = counts.head(n)
+        result = counts.head(n).copy()
         mode_desc = f"Топ {min(n, len(result))} торговых точек"
     else:
-        result = counts[counts['Количество обращений'] > min_tickets]
+        result = counts[counts['Количество обращений'] > min_tickets].copy()
         mode_desc = f"Торговые точки с более чем {min_tickets} обращениями"
 
     if result.empty:
@@ -37,6 +37,12 @@ def get_top_points(df: pd.DataFrame,
             summary=f"{mode_desc}: не найдено. Попробуйте перефразировать запрос.",
             answer=f"{mode_desc}: не найдено. Попробуйте перефразировать запрос."
         )
+
+    # Название точки (бренд) рядом с ключом "клиент | адрес". В норме на
+    # один point_key приходится одно название; если их несколько — значит
+    # в данных разнобой, и "+N" это честно покажет.
+    brands = brands_by_group(df, 'point_key')
+    result.insert(1, 'Название точки', result['Торговая точка'].map(brands).fillna('—'))
 
     result.insert(0, '№', range(1, len(result) + 1))
     top_list = [f"{row['№']}. {row['Торговая точка']} — {row['Количество обращений']} обр."
@@ -98,12 +104,7 @@ def search_point(df: pd.DataFrame,
     summary = f"Торговая точка '{point_desc}': {total} обращений, последнее {last_date}"
     answer = f"Обращения по торговой точке '{point_desc}':\nВсего: {total}, последнее: {last_date}"
 
-    avail_cols, ru_names = get_preview_columns(point_df)
-    if avail_cols:
-        preview = point_df[avail_cols].sort_values('date', ascending=False).reset_index(drop=True)
-        preview.columns = [ru_names.get(col, col) for col in avail_cols]
-    else:
-        preview = pd.DataFrame()
+    preview = build_preview(point_df)
 
     return format_answer(
         summary=summary,
@@ -170,12 +171,7 @@ def search_point_by_date(df: pd.DataFrame,
     summary = f"Точка '{point_desc}' {period_desc}: {total} обращений"
     answer = f"Обращения точки '{point_desc}' {period_desc}:\nВсего: {total}, последнее {last_date}"
 
-    avail_cols, ru_names = get_preview_columns(filtered_df)
-    if avail_cols:
-        preview = filtered_df[avail_cols].sort_values('date', ascending=False).reset_index(drop=True)
-        preview.columns = [ru_names.get(col, col) for col in avail_cols]
-    else:
-        preview = pd.DataFrame()
+    preview = build_preview(filtered_df)
 
     return format_answer(
         summary=summary,
