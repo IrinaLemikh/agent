@@ -1,112 +1,196 @@
 {
   "sheets": {
+    "Выгрузки для анализа_Денис": {
+      "table_name": "Выгрузки для анализа",
+      "sheet_name": "Денис",
+      "row_count": 81,
+      "has_data": true,
+      "date_min": "2026-08-01",
+      "date_max": "2026-09-15"
+    },
+    "Выгрузки для анализа_Вася": {
+      "table_name": "Выгрузки для анализа",
+      "sheet_name": "Вася",
+      "row_count": 65,
+      "has_data": true,
+      "date_min": "2026-08-01",
+      "date_max": "2026-09-15"
+    },
     "Выгрузки для анализа_03.11-09.11": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "03.11-09.11",
       "row_count": 358,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2025-11-03",
+      "date_max": "2025-11-09"
     },
     "Выгрузки для анализа_10.11-24.11": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "10.11-24.11",
       "row_count": 998,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2025-11-10",
+      "date_max": "2025-11-24"
     },
     "Выгрузки для анализа_24.11-07.12": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "24.11-07.12",
       "row_count": 847,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2025-11-24",
+      "date_max": "2025-12-07"
     },
     "Выгрузки для анализа_8.12-21.12": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "8.12-21.12",
       "row_count": 844,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2025-12-08",
+      "date_max": "2025-12-21"
     },
     "Выгрузки для анализа_22.12-11.01": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "22.12-11.01",
       "row_count": 1125,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2025-12-22",
+      "date_max": "2026-01-11"
     },
     "Выгрузки для анализа_12.01-25.01": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "12.01-25.01",
       "row_count": 946,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-01-12",
+      "date_max": "2026-01-25"
     },
     "Выгрузки для анализа_26.01-08.02": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "26.01-08.02",
       "row_count": 986,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-01-26",
+      "date_max": "2026-02-08"
     },
     "Выгрузки для анализа_9.02-23.02": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "9.02-23.02",
       "row_count": 956,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-02-09",
+      "date_max": "2026-02-24"
     },
     "Выгрузки для анализа_24.02-9.03": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "24.02-9.03",
       "row_count": 797,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-02-24",
+      "date_max": "2026-03-09"
     },
     "Выгрузки для анализа_10.03-22.03": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "10.03-22.03",
       "row_count": 787,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-03-10",
+      "date_max": "2026-03-22"
     },
     "Выгрузки для анализа_23.03-05.04": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "23.03-05.04",
       "row_count": 1014,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-03-23",
+      "date_max": "2026-04-05"
     },
     "Выгрузки для анализа_06.04-26.04": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "06.04-26.04",
       "row_count": 1444,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-04-06",
+      "date_max": "2026-04-26"
     },
     "Выгрузки для анализа_27.04-11.05": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "27.04-11.05",
       "row_count": 931,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-04-27",
+      "date_max": "2026-05-11"
     },
     "Выгрузки для анализа_12.05-24.05": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "12.05-24.05",
       "row_count": 847,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-05-12",
+      "date_max": "2026-05-25"
     },
     "Выгрузки для анализа_25.05-07.06": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "25.05-07.06",
       "row_count": 1105,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-05-25",
+      "date_max": "2026-06-07"
     },
     "Выгрузки для анализа_08.06-21.06": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "08.06-21.06",
       "row_count": 1074,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-06-08",
+      "date_max": "2026-06-22"
     },
     "Выгрузки для анализа_22.06-5.07": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "22.06-5.07",
       "row_count": 1285,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-06-22",
+      "date_max": "2026-07-05"
     },
     "Выгрузки для анализа_6.07-19.07": {
       "table_name": "Выгрузки для анализа",
       "sheet_name": "6.07-19.07",
       "row_count": 1017,
-      "has_data": true
+      "has_data": true,
+      "date_min": "2026-07-06",
+      "date_max": "2026-07-19"
+    },
+    "Выгрузки для анализа_20.07-2.08": {
+      "table_name": "Выгрузки для анализа",
+      "sheet_name": "20.07-2.08",
+      "row_count": 936,
+      "has_data": true,
+      "date_min": "2026-07-20",
+      "date_max": "2026-08-03"
+    },
+    "Выгрузки для анализа_03.08-16.08": {
+      "table_name": "Выгрузки для анализа",
+      "sheet_name": "03.08-16.08",
+      "row_count": 946,
+      "has_data": true,
+      "date_min": "2026-08-03",
+      "date_max": "2026-08-17"
+    },
+    "Выгрузки для анализа_17.08-30.08": {
+      "table_name": "Выгрузки для анализа",
+      "sheet_name": "17.08-30.08",
+      "row_count": 1192,
+      "has_data": true,
+      "date_min": "2026-08-17",
+      "date_max": "2026-08-31"
+    },
+    "Выгрузки для анализа_31.08-13.09": {
+      "table_name": "Выгрузки для анализа",
+      "sheet_name": "31.08-13.09",
+      "row_count": 1143,
+      "has_data": true,
+      "date_min": "2026-08-31",
+      "date_max": "2026-09-13"
     }
   }
 }
