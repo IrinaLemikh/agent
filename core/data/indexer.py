@@ -18,6 +18,12 @@ class SheetMetadata:
     sheet_name: str = ""
     row_count: int = 0
     has_data: bool = False
+    # НОВОЕ: диапазон дат обращений на листе. Нужен, чтобы упорядочить листы
+    # в мультиселекте: в их названиях год не указан ("22.12-11.01"), поэтому
+    # ни алфавит, ни разбор имени правильного порядка не дают — декабрь и
+    # январь принадлежат разным годам, а из имени этого не видно.
+    date_min: str = ""
+    date_max: str = ""
 
     def key(self) -> str:
         return f"{self.table_name}_{self.sheet_name}"
@@ -25,6 +31,12 @@ class SheetMetadata:
     def update_from_data(self, df: pd.DataFrame):
         self.row_count = len(df)
         self.has_data = self.row_count > 0
+
+        if "date" in df.columns and self.row_count:
+            parsed = pd.to_datetime(df["date"], errors="coerce").dropna()
+            if not parsed.empty:
+                self.date_min = parsed.min().strftime("%Y-%m-%d")
+                self.date_max = parsed.max().strftime("%Y-%m-%d")
 
 
 class SheetIndex:

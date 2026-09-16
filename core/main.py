@@ -90,6 +90,14 @@ st.markdown("""
     .stButton > button {
         white-space: nowrap !important;
     }
+    /* Колонка с кнопкой сжимается по кнопке, а не растягивается на всю
+       свою долю ширины — иначе кнопки разъезжаются по краям пустых колонок.
+       Оставшееся место забирает последняя колонка без кнопок. */
+    div[data-testid="column"]:has(button) {
+        width: auto !important;
+        flex: 0 0 auto !important;
+        min-width: 0 !important;
+    }
     .stButton > button[kind="primary"] {
         background: linear-gradient(45deg, #FF8C00, #FF4500) !important;
         color: white !important;
@@ -179,10 +187,10 @@ if 'message_reactions' not in st.session_state:
     st.session_state.message_reactions = {}  # ключ — индекс сообщения
 
 # --- КНОПКИ УПРАВЛЕНИЯ ---
-# Колонки дают кнопкам запас по ширине, а сами кнопки тянутся по своему
-# тексту (use_container_width=False) — поэтому подпись не переносится
-# и кнопка не раздувается на всю колонку.
-col1, col2, col_empty = st.columns([3.2, 1.6, 7.2])
+# Кнопки тянутся по своему тексту (use_container_width=False), а колонки
+# под ними сжимаются по кнопке (CSS выше), поэтому доли здесь — только
+# запасной вариант на случай, если браузер не поймёт :has().
+col1, col2, col_empty = st.columns([2.8, 1.4, 7.8])
 
 with col1:
     if st.button("Обновить данные из Google Sheets", type="primary", use_container_width=False):
@@ -264,13 +272,26 @@ if st.session_state['data_loaded']:
                 table = sheet['table_name']
                 if table not in sheets_by_table:
                     sheets_by_table[table] = []
-                sheets_by_table[table].append(sheet['sheet_name'])
-            
-            for table, sheet_names in sheets_by_table.items():
+                sheets_by_table[table].append(sheet)
+
+            for table, sheets_in_table in sheets_by_table.items():
+                # Сортировка по алфавиту тут была неверной: листы называются
+                # диапазонами без года ("03.11-09.11", "22.12-11.01"), и
+                # алфавит перемешивает ноябрь с апрелем. Сортируем по дате
+                # первого обращения на листе. Если индекс собран старой
+                # версией и дат в нём нет, ключи окажутся одинаковыми —
+                # сортировка стабильная, и порядок останется тем, в котором
+                # листы идут в самой Google-таблице (он уже хронологический).
+                ordered = sorted(
+                    sheets_in_table,
+                    key=lambda s: s.get('date_min') or '9999-99-99'
+                )
+                sheet_names = [s['sheet_name'] for s in ordered]
+
                 selected = st.multiselect(
                     f"Листы из таблицы **{table}**",
-                    options=sorted(sheet_names, key=lambda x: x.lower()),
-                    default=sorted(sheet_names),
+                    options=sheet_names,
+                    default=sheet_names,
                     placeholder="Выберите листы...",
                     key=f"sheets_{table}"
                 )
