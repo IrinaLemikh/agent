@@ -35,6 +35,15 @@ from loguru import logger
 DEFAULT_GLOSSARY_PATH = Path("/app/config/glossary.json")
 
 
+def _lookup_key(text: str) -> str:
+    """
+    Ключ для поиска по словарю: без регистра и знаков ("Пив#Маркет" ->
+    "пивмаркет"). Та же нормализация, что в client._word_key, — иначе
+    название с решёткой или точкой никогда не найдётся.
+    """
+    return ''.join(ch for ch in text.lower() if ch.isalnum())
+
+
 class Glossary:
     """
     Словарь терминов и типовых кейсов с fuzzy-поиском по запросу.
@@ -148,17 +157,45 @@ class Glossary:
     # =========================================================================
     def alias_map(self, section: str = "client_address") -> Dict[str, str]:
         """
-        {alias_в_нижнем_регистре: канонический_термин} для записей нужного
-        раздела. Сам термин тоже включается как ключ (в нижнем регистре) —
-        чтобы можно было безопасно применять .get(text.lower(), text).
+        {alias_в_нижнем_регистре: канонический_термин} для КВАЛИФИКАТОРОВ
+        нужного раздела — записей с "qualifier": true ("проф" -> "Проф",
+        "франч" -> "Франшиза").
+
+        Записи брендов ("standalone_brand": true) сюда НЕ попадают: бренд —
+        это не квалификатор, он не разворачивается, а определяет, чьё это
+        направление (см. standalone_brands ниже и client._expand_point_name).
         """
         result: Dict[str, str] = {}
         for term, entry in self.entries.items():
             if entry.get("section", "problem") != section:
                 continue
-            result[term.lower()] = term
+            if entry.get("standalone_brand"):
+                continue
+            result[_lookup_key(term)] = term
             for alias in entry.get("aliases", []):
-                result[alias.lower()] = term
+                result[_lookup_key(alias)] = term
+        return result
+
+    def standalone_brands(self, section: str = "client_address") -> Dict[str, str]:
+        """
+        {ключ: каноническое_имя_бренда} для записей с "standalone_brand": true —
+        компаний, которые обслуживаются наравне с Пивко, но им не являются
+        (Ротор, Пивстанция, Жизньмарт...).
+
+        Нужен, чтобы "Франч Ротор" стало "Ротор Франшиза", а не "Пивко
+        Франшиза Ротор": бренд по умолчанию — Пивко, и только явное имя из
+        этого списка его перебивает. Список ведётся в glossary.json руками —
+        из данных принадлежность компании не выводится никак.
+        """
+        result: Dict[str, str] = {}
+        for term, entry in self.entries.items():
+            if entry.get("section", "problem") != section:
+                continue
+            if not entry.get("standalone_brand"):
+                continue
+            result[_lookup_key(term)] = term
+            for alias in entry.get("aliases", []):
+                result[_lookup_key(alias)] = term
         return result
 
     # =========================================================================

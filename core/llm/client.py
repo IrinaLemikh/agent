@@ -12,6 +12,7 @@
 """
 import os
 import json
+import re
 import requests
 import time
 from typing import List, Optional, Dict, Any, Tuple
@@ -37,39 +38,112 @@ CLIENT_ADDRESS_TOOL_NAME = "submit_client_address"
 
 def _compose_address(city: str, street: str, house: str, korpus: str, apartment: str) -> str:
     """
-    Собирает address_normalized из структурных полей в ФИКСИРОВАННОМ порядке
-    и формате - детерминированно, без участия LLM в форматировании. Чинит
-    найденный на реальных данных баг реконсилятора: раньше модель сама решала,
-    писать ли "д." перед номером дома, из-за чего один и тот же дом ("ул.
-    Крылова, д. 53/1" vs "Екатеринбург, ул. Крылова, 53/1") давал разные
-    отпечатки в reconciler.address_fingerprint. Теперь house - отдельное
-    поле, слово "д." туда в принципе попасть не может.
+    Склеивает address_normalized из структурных полей через запятую, в
+    фиксированном порядке и НИЧЕГО не дописывая:
+
+        "Екатеринбург, Белинского, 86, 98"
+        "Белоярский, мкр. Геологический, 2б"
+
+    Обозначения ("ул.", "д.", "кв.", "пом.") отбрасывает сама модель по
+    промпту - кроме случаев, где тип это часть названия ("4 мкрн"). Раньше
+    наоборот: модель просили тип убрать, а сборщик приписывал "ул." и "кв."
+    обратно, сверяясь со списком известных типов. Список неизбежно оказывался
+    неполным, и на живых данных выходили "ул. мкр 5 А" и "кв. помещ 98".
+    Теперь приписывать нечего - склейка про типы не знает вообще.
+
+    Корпус клеится к дому через "/" ("30-А/1") - единственный добавляемый
+    символ, и он не зависит от того, что написала модель.
     """
     parts = []
     if city:
         parts.append(city)
     if street:
-        parts.append(f"ул. {street}" if house else street)
+        parts.append(street)
     if house:
-        h = f"{house}/{korpus}" if korpus else house
-        parts.append(h)
+        parts.append(f"{house}/{korpus}" if korpus else house)
     if apartment:
-        parts.append(f"кв. {apartment}")
+        parts.append(apartment)
     return ", ".join(parts)
 
 
-def _expand_point_name(raw: str, aliases: Dict[str, str]) -> str:
+def _word_key(token: str) -> str:
+    """Слово без регистра и пунктуации — ключ для сравнения со словарём."""
+    return ''.join(ch for ch in token.lower() if ch.isalnum())
+
+
+DEFAULT_POINT_BRAND = "Пивко"
+
+
+def _expand_point_name(
+    raw: str,
+    aliases: Dict[str, str],
+    brands: Optional[Dict[str, str]] = None,
+) -> str:
     """
-    Разворачивает короткий квалификатор ("проф") в полное имя суб-бренда
-    ("Пивко Проф") по словарю aliases (Glossary.alias_map(section=
-    "client_address"), собирается вызывающим кодом в fetcher — client.py
-    сюда напрямую glossary.py не импортирует, тот же паттерн передачи
-    готового текста/словаря параметром, что и у categorize_and_normalize_batch.
-    Если alias не найден — возвращает исходный текст как есть (не выдумывает).
+    Приводит название точки к виду "<Бренд> <Квалификатор> <гео и остальное>".
+
+        "Проф Краснодар"      -> "Пивко Проф Краснодар"
+        "Москва ПРОФ"         -> "Пивко Проф Москва"
+        "Пивко Франч"         -> "Пивко Франшиза"
+        "Франч Ротор"         -> "Ротор Франшиза"
+        "франч Самара Ротор"  -> "Ротор Франшиза Самара"
+
+    Бренд по умолчанию — Пивко: техподдержка обслуживает разные сети, но
+    подавляющее большинство клиентов это Пивко, и операторы не пишут его
+    в каждом обращении (ровно как не пишут "Екатеринбург" — офис здесь).
+    Перебить умолчание может только имя из списка самостоятельных компаний
+    (Glossary.standalone_brands) — Ротор, Пивстанция и т.п. Но если "Пивко"
+    написано явно, оно выигрывает: "Франч Пивко // Разливной" остаётся
+    Пивко, а Разливной уезжает в хвост.
+
+    Совпадение ищется по ЦЕЛЫМ словам: улица "Профсоюзная" и слово
+    "спорт-проф" не превращаются в "Пивко Проф" (обе ловушки есть в данных).
+
+    Город из названия НЕ трогаем и в адрес не переносим: это имя
+    региональной территории франшизы, а не место точки — под "Проф Сургут"
+    есть точки в Когалыме и Покачах.
+
+    aliases/brands приходят параметрами из fetcher: client.py сам
+    glossary.py не импортирует.
     """
     if not raw:
         return ""
-    return aliases.get(raw.strip().lower(), raw.strip())
+    raw = raw.strip()
+    if not aliases:
+        return raw
+
+    brands = brands or {}
+    qualifier = None
+    brand = None
+    explicit_default_brand = False
+    tail: List[str] = []
+
+    for token in raw.split():
+        key = _word_key(token)
+        if not key:
+            continue  # "//", "|" и прочие обрывки разделителей смысла не несут
+        if qualifier is None and key in aliases:
+            qualifier = aliases[key]
+            continue
+        if key == _word_key(DEFAULT_POINT_BRAND):
+            explicit_default_brand = True
+            continue
+        if brand is None and key in brands:
+            brand = brands[key]
+            continue
+        tail.append(token)
+
+    if qualifier is None:
+        return raw
+
+    if explicit_default_brand:
+        # Явное "Пивко" сильнее имени из списка: сам бренд, если он тоже
+        # был назван, остаётся уточнением в хвосте
+        if brand:
+            tail.insert(0, brand)
+        brand = DEFAULT_POINT_BRAND
+
+    return " ".join([brand or DEFAULT_POINT_BRAND, qualifier] + tail)
 
 
 class DeepSeekClient:
@@ -289,6 +363,7 @@ class DeepSeekClient:
         pairs: Dict[str, Tuple[str, str]],
         point_name_glossary_text: str = "",
         point_name_aliases: Optional[Dict[str, str]] = None,
+        point_name_brands: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Dict[str, str]]:
         """
         Совместная нормализация пар (client_raw, address_raw) одним вызовом —
@@ -320,6 +395,7 @@ class DeepSeekClient:
             return {}
 
         point_name_aliases = point_name_aliases or {}
+        point_name_brands = point_name_brands or {}
 
         task_prompt = TASK_PROMPTS.get("normalize_client_address")
         if not task_prompt:
@@ -369,7 +445,11 @@ class DeepSeekClient:
                 continue
 
             client_normalized = (entry.get("client_normalized") or "").strip()
-            point_name = _expand_point_name((entry.get("point_name") or "").strip(), point_name_aliases)
+            point_name = _expand_point_name(
+                (entry.get("point_name") or "").strip(),
+                point_name_aliases,
+                point_name_brands,
+            )
             address_normalized = _compose_address(
                 city=(entry.get("city") or "").strip(),
                 street=(entry.get("street") or "").strip(),
@@ -381,6 +461,10 @@ class DeepSeekClient:
                 "client_normalized": client_normalized,
                 "point_name": point_name,
                 "address_normalized": address_normalized,
+                # Город отдельным полем — чтобы реконсилер знал факт его
+                # наличия, а не угадывал по виду строки (пустое значение = в
+                # адресе города действительно нет).
+                "city": (entry.get("city") or "").strip(),
             }
 
         logger.debug(f"✅ Нормализация клиент+адрес завершена, обработано {len(cleaned_results)}/{len(pairs)}")

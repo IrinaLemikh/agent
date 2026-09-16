@@ -9,9 +9,11 @@
    to_prompt_text() — слой 1 (fuzzy) и слой 2 (LLM) для проблем.
 
 2) core/data/glossary.py -> Glossary: to_prompt_text(section="problem"|
-   "client_address"), alias_map(section="client_address") — раздел
-   "client_address" содержит только контекст про суб-бренды (например
-   "Пивко Проф"), НЕ весь технический словарь.
+   "client_address"), alias_map(section="client_address") — квалификаторы
+   направлений ("франч" -> "Франшиза"), standalone_brands(section=
+   "client_address") — компании, которые НЕ Пивко (Ротор, Пивстанция).
+   Раздел "client_address" содержит только контекст про названия точек,
+   НЕ весь технический словарь.
 
 3) core/llm/client.py -> DeepSeekClient:
    - categorize_and_normalize_batch(items, category_names, categories_text,
@@ -72,7 +74,14 @@ TARGET_COLUMNS = [
     "client_normalized",         # юрлицо/ФИО или пусто (никогда бренд — см. point_name)
     "address_raw",               # исходный адрес
     "address_normalized",        # только география, город без дефолта (см. reconciler)
-    "point_name",                 # НОВОЕ: коммерческое название точки (бренд/франшиза)
+    "address_city",              # НОВОЕ: город отдельным полем. Пусто = города в
+                                 # адресе НЕТ (факт, а не догадка) — реконсилер
+                                 # по нему подтягивает город и ставит дефолт.
+    "point_name",                 # НОВОЕ: коммерческое название точки (бренд/франшиза).
+                                 # ВАЖНО: НЕ источник географии. Город внутри него —
+                                 # имя территории франшизы, а не место точки:
+                                 # "Проф Краснодар" включает точки в Яблоновском.
+                                 # Фильтровать по городу можно только по address_city.
     "problem_raw",               # исходное описание проблемы
     "problem_normalized",        # краткое резюме (5-7 слов)
     "problem_tags",               # НОВОЕ: список категорий (1-3 тега на обращение)
@@ -200,6 +209,7 @@ class Fetcher:
         # client+address — не весь технический словарь, см. Glossary.to_prompt_text
         self._point_name_glossary_text = self.glossary.to_prompt_text(section="client_address")
         self._point_name_aliases = self.glossary.alias_map(section="client_address")
+        self._point_name_brands = self.glossary.standalone_brands(section="client_address")
 
         # =====================================================================
         # НОВОЕ: флаг очистки кэша (переменная окружения CLEAR_CACHE=true)
@@ -305,6 +315,7 @@ class Fetcher:
             pairs=id_to_pair,
             point_name_glossary_text=self._point_name_glossary_text,
             point_name_aliases=self._point_name_aliases,
+            point_name_brands=self._point_name_brands,
         )
 
         remapped: Dict[str, Dict[str, str]] = {}
@@ -530,11 +541,12 @@ class Fetcher:
     def _normalize_pair_with_cache(self, client_raw: str, address_raw: str) -> Dict[str, str]:
         """
         Быстрая нормализация пары с использованием только кэша (без вызова
-        LLM). Возвращает {"client_normalized", "point_name", "address_normalized"}.
+        LLM). Возвращает {"client_normalized", "point_name",
+        "address_normalized", "city"}.
         Если пары нет в кэше (редкий случай, например кэш почистили в
         процессе работы) — делает одиночный вызов (батч из одной пары).
         """
-        empty = {"client_normalized": "", "point_name": "", "address_normalized": ""}
+        empty = {"client_normalized": "", "point_name": "", "address_normalized": "", "city": ""}
         if not client_raw and not address_raw:
             return empty
 
@@ -553,6 +565,7 @@ class Fetcher:
                     pairs={"1": (client_raw, address_raw)},
                     point_name_glossary_text=self._point_name_glossary_text,
                     point_name_aliases=self._point_name_aliases,
+                    point_name_brands=self._point_name_brands,
                 )
                 result = response.get("1", empty)
                 self.cache["client_address"][key] = result
@@ -814,10 +827,12 @@ class Fetcher:
                 record["client_normalized"] = pair_result.get("client_normalized", "")
                 record["point_name"] = pair_result.get("point_name", "")
                 record["address_normalized"] = pair_result.get("address_normalized", "")
+                record["address_city"] = pair_result.get("city", "")
             else:
                 record["client_normalized"] = ""
                 record["point_name"] = ""
                 record["address_normalized"] = ""
+                record["address_city"] = ""
 
             for target, idx in mapping.items():
                 if target in ("client_raw", "address_raw"):
