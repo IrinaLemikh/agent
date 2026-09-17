@@ -455,6 +455,133 @@ def reconcile_point_names(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict[str
     return df, changes
 
 
+def reconcile_client_point_roles(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict[str, str]]]:
+    """
+    Сводит случаи, когда одна и та же контора записана то именем владельца,
+    то вывеской — в разных строках по-разному.
+
+    В данных это выглядит так (см. обсуждение в чате):
+
+        ООО БирЛайт        + точка "Тагильское пиво"   299 строк
+        "Тагильское пиво"  как сам клиент                5 строк
+
+    Для ключа это два разных хозяина, и один магазин попадает в отчёт
+    дважды. Приём тот же, что и везде: спросить у данных, но только когда
+    ответ однозначен. Условия срабатывания:
+
+      • название точки где-то в данных стоит клиентом само по себе;
+      • у этого названия среди строк с заполненным клиентом ровно ОДИН
+        владелец (иначе это сеть — "ПивКо" стоит точкой у сотни клиентов,
+        и приравнивать их друг к другу нельзя).
+
+    Канон выбирается по частоте, как и остальные написания: побеждает тот
+    вариант, которым чаще подписан клиент. Это заодно развязывает взаимные
+    пары — "Скутин" стоит точкой у клиента "САДКО", а "САДКО" точкой у
+    клиента "Скутин"; обе пары приводят к одному и тому же победителю.
+
+    Прежнее написание не теряется: оно уходит в point_name, если тот пуст.
+    """
+    df = df.copy()
+    client = df.get('client_normalized', pd.Series('', index=df.index)).fillna('').astype(str).str.strip()
+    point_name = df.get('point_name', pd.Series('', index=df.index)).fillna('').astype(str).str.strip()
+
+    named = pd.DataFrame({'client': client, 'point_name': point_name})
+    named = named[(named['client'] != '') & (named['point_name'] != '')]
+    owners = named.groupby('point_name')['client'].agg(lambda s: {_norm_key(x): x for x in s})
+
+    as_client = collections.Counter(_norm_key(c) for c in client if c)
+
+    mapping: Dict[str, str] = {}
+    for name, owner_map in owners.items():
+        if len(owner_map) != 1:
+            continue  # у названия несколько владельцев — это сеть, не псевдоним
+        owner = next(iter(owner_map.values()))
+        name_key, owner_key = _norm_key(name), _norm_key(owner)
+        if name_key == owner_key or name_key not in as_client:
+            continue  # название нигде не выступает клиентом само по себе
+        loser, winner = ((owner, name) if as_client[name_key] >= as_client[owner_key]
+                         else (name, owner))
+        mapping[_norm_key(loser)] = winner
+
+    changes: List[Dict[str, str]] = []
+    for idx in df.index[client != '']:
+        winner = mapping.get(_norm_key(client[idx]))
+        if not winner or winner == client[idx]:
+            continue
+        changes.append({'from': client[idx], 'to': winner})
+        if not point_name[idx]:
+            df.at[idx, 'point_name'] = client[idx]
+        df.at[idx, 'client_normalized'] = winner
+
+    if changes:
+        pairs = sorted({(c['from'], c['to']) for c in changes})
+        logger.info(f"🔗 Клиент и точка поменялись ролями: сведено {len(changes)} строк, "
+                    f"пар — {len(pairs)}: {'; '.join(f'{a} -> {b}' for a, b in pairs[:5])}")
+    return df, changes
+
+
+def backfill_identity(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict[str, str]]]:
+    """
+    Подписывает строки, где не заполнено НИ клиента, ни названия точки, но
+    адрес известен и у этого дома в остальных строках ровно один хозяин.
+
+    Зачем (см. обсуждение в чате): оператор заполняет клиента не всегда, а
+    адрес пишет тем же текстом. В сырых данных это видно буквально:
+
+        (пусто)                       | г. Ростов на Дону, ул. Каскадная 164   7 строк
+        ИП Белокопытов А.Н. (Проф ...)| г. Ростов на Дону, ул. Каскадная 164  51 строка
+
+    Без подписи такие строки становятся отдельной точкой "голый адрес", и
+    один магазин попадает в отчёт дважды. Замер: 272 строки, ключей
+    3168 -> 3015.
+
+    Это тот же приём, что уже применён к городу и к названию точки: спросить
+    у соседа по дому, но только если сосед ОДИН. Там, где у дома несколько
+    разных хозяев (203 строки — в одном здании правда сидят разные
+    арендаторы), не трогаем ничего: угадывать, к кому из них относится
+    обращение, нечем.
+
+    Дом опознаётся по (город, отпечаток адреса) — тому же ключу, что и
+    везде, поэтому "Каскадная 164" и "ул. Каскадная, д. 164" считаются одним
+    домом, а одинаковые улицы в разных городах не путаются.
+    """
+    df = df.copy()
+    client = df.get('client_normalized', pd.Series('', index=df.index)).fillna('').astype(str).str.strip()
+    point_name = df.get('point_name', pd.Series('', index=df.index)).fillna('').astype(str).str.strip()
+    addr = df.get('address_normalized', pd.Series('', index=df.index)).fillna('').astype(str).str.strip()
+    city = df.get('address_city', pd.Series('', index=df.index)).fillna('').astype(str).str.strip()
+
+    identity = client.where(client != '', point_name)
+    house = pd.Series(
+        [f'{_norm_key(c)}|{address_fingerprint(a, c)}' for c, a in zip(city, addr)],
+        index=df.index,
+    )
+
+    # хозяева дома: только строки, где адрес есть и подпись есть
+    named = pd.DataFrame({'house': house, 'identity': identity,
+                          'client': client, 'point_name': point_name})
+    named = named[(named['identity'] != '') & (addr != '')]
+    owners = named.groupby('house')['identity'].agg(lambda s: set(s))
+    # у соседей по дому подпись стоит в клиенте или только в названии точки —
+    # в ту же колонку пишем и мы, иначе точка опознавалась бы иначе, чем соседи
+    by_client = named.groupby('house')['client'].agg(lambda s: (s != '').all())
+
+    log: List[Dict[str, str]] = []
+    for idx in df.index[(identity == '') & (addr != '')]:
+        candidates = owners.get(house[idx])
+        if not candidates or len(candidates) != 1:
+            continue  # хозяина нет вовсе или их несколько — не гадаем
+        owner = next(iter(candidates))
+        column = 'client_normalized' if by_client[house[idx]] else 'point_name'
+        df.at[idx, column] = owner
+        log.append({'address': addr[idx], 'owner': owner})
+
+    if log:
+        logger.info(f"🔗 Подпись безымянных строк: {len(log)} строк отнесено к "
+                    f"единственному хозяину дома")
+    return df, log
+
+
 def canonicalize_point_fields(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
     """
     Последний шаг перед сборкой ключа: внутри одной физической точки даёт всем
@@ -571,14 +698,18 @@ def recompute_point_key(df: pd.DataFrame) -> pd.DataFrame:
 def reconcile(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, object]]:
     """Точка входа: прогоняет все шаги и собирает отчёт для логов/отладки."""
     df, client_merges = reconcile_clients(df)
+    df, role_swaps = reconcile_client_point_roles(df)
     df, address_backfills = reconcile_addresses(df)
+    df, identity_backfills = backfill_identity(df)
     df, point_name_changes = reconcile_point_names(df)
     df, canonical_stats = canonicalize_point_fields(df)
     df = recompute_point_key(df)
 
     report = {
         'client_merges': client_merges,
+        'role_swaps': role_swaps,
         'address_backfills': address_backfills,
+        'identity_backfills': identity_backfills,
         'canonical_stats': canonical_stats,
         'point_name_changes': point_name_changes,
     }
