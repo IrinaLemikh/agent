@@ -18,8 +18,12 @@ address_raw независима по каждому уникальному сы
      если совпадение уверенное (высокий fuzzy score).
   2. reconcile_addresses — группировка по (уже сведённому) клиенту,
      подтягивание города там, где он есть у той же связки клиент+дом.
-  3. recompute_point_key — пересчёт point_key одним вложенным проходом
-     после того как оба поля выше уже финальны.
+  3. reconcile_point_names — подтягивание названия точки от соседа по дому
+     и сведение написаний к самому частому.
+  4. canonicalize_point_fields — внутри одной точки одно написание клиента
+     и адреса, чтобы разнобой регистра не рвал её на несколько ключей.
+  5. recompute_point_key — пересчёт point_key одним вложенным проходом
+     после того как все поля выше уже финальны.
 
 Кэш (core/data/fetcher.py: self.cache) НЕ модифицируется и не читается
 этим модулем — реконсиляция стейтлесс и пересчитывается заново при каждом
@@ -120,8 +124,15 @@ DEFAULT_CITY = "Екатеринбург"
 
 
 def _norm_key(s: str) -> str:
-    """Ключ сравнения строк: без регистра, пунктуации и пробелов."""
-    return re.sub(r'[^0-9a-zа-яё]', '', str(s).lower())
+    """
+    Ключ сравнения строк: без регистра, пунктуации и пробелов.
+
+    "ё" приводится к "е". В источнике одно и то же название приходит и так и
+    так — "Артёмовский" в 22 строках, "Артемовский" в 78, — а для опознания
+    это одна и та же буква. Ключ нигде не показывается, поэтому на отчёты это
+    не влияет: в них по-прежнему побеждает самое частое написание.
+    """
+    return re.sub(r'[^0-9a-zа-я]', '', str(s).lower().replace('ё', 'е'))
 
 
 # Слова-обозначения выбрасываются при сравнении адресов — где бы они ни
@@ -365,21 +376,11 @@ def reconcile_addresses(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict[str, 
         addr[idx] = f"{source}, {addr[idx]}"
         log.append({'client': c, 'address': addr[idx], 'city': source, 'origin': origin})
 
-    # ---- шаг 2: единое написание внутри (клиент, дом, город) ----
-    groups = pd.DataFrame({'client': client, 'fp': fp, 'city': city, 'addr': addr})
-    canonical = (
-        groups[groups['fp'] != '']
-        .groupby(['client', 'fp', 'city'])['addr']
-        .agg(lambda s: s.value_counts().idxmax())
-    )
-    unified = 0
-    for idx in df.index:
-        key = (client[idx], fp[idx], city[idx])
-        best = canonical.get(key)
-        if best is not None and best != addr[idx]:
-            addr[idx] = best
-            unified += 1
-
+    # Сведение написания адреса раньше жило здесь и группировало по точному
+    # тексту клиента. Переехало ниже, в canonicalize_point_fields: там ключ
+    # уже окончательный (после реконсиляции названий точек), поэтому видны и
+    # строки с пустым клиентом, где опознаётся point_name, и разнобой в самом
+    # клиенте.
     df['address_normalized'] = addr
     df['address_city'] = city
 
@@ -388,7 +389,7 @@ def reconcile_addresses(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict[str, 
         f"🔗 Реконсиляция адресов: город проставлен для {len(log)} строк "
         f"(от соседа по дому — {by_origin['дом']}, от клиента — {by_origin['клиент']}, "
         f"из названия точки — {by_origin['название']}, дефолт — {by_origin['дефолт']}); "
-        f"написание города сведено у {cities_unified} строк, адреса — у {unified}"
+        f"написание города сведено у {cities_unified} строк"
     )
     return df, log
 
@@ -454,6 +455,85 @@ def reconcile_point_names(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict[str
     return df, changes
 
 
+def canonicalize_point_fields(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, int]]:
+    """
+    Последний шаг перед сборкой ключа: внутри одной физической точки даёт всем
+    строкам ОДНО написание клиента и адреса.
+
+    Зачем (см. обсуждение в чате): point_key склеивается из отображаемых строк
+    дословно, поэтому любой разнобой написания рвёт точку на несколько ключей —
+    и это видно в отчётах, а не только внутри. Замер на реальных данных: 14
+    точек разбито надвое, например "ПивКо | Березовский, Мира, 2А" (5 строк) и
+    "ПивКо | Березовский, Мира, 2а" (15 строк) — две строки в топе точек вместо
+    одной. Канон выбирается по частоте: тот же приём, что уже применён к городу
+    и названию точки.
+
+    Ключ группировки — (личность, город, отпечаток адреса). Про каждую часть:
+
+    • ЛИЧНОСТЬ, а не клиент: у строк с пустым клиентом опознавательная часть
+      ключа — point_name, ровно как в recompute_point_key ниже.
+
+    • ГОРОД обязателен, хотя отпечаток и так не зависит от написания улицы.
+      Отпечаток отрезает город буквально, и без него "Ленина, 33А" в Кашино
+      слилась бы с "Ленина, 33а" в Хабаровске — улица Ленина есть везде.
+      Замер: без города ложно слиплись бы 10 групп. Пустой город при этом не
+      мешает: настоящий адрес его всегда получает (последняя ступень лестницы
+      в reconcile_addresses — дефолт), а пустым он остаётся только у строк
+      вроде "офис", которым и правильно группироваться между собой.
+
+    ЧЕГО ЗДЕСЬ НАМЕРЕННО НЕ ДЕЛАЕТСЯ: пустой адрес не заполняется от соседей.
+    Проверено на данных — у таких строк пуст сам address_raw, так что подтянуть
+    им "офис" значило бы выдумать. Прочерк должен означать "адрес неизвестен",
+    а не "наверное, офис": иначе в топе точек одной строкой смешаются
+    обращения из головного офиса и обращения непонятно откуда.
+    """
+    df = df.copy()
+    client = df.get('client_normalized', pd.Series('', index=df.index)).fillna('').astype(str).str.strip()
+    point_name = df.get('point_name', pd.Series('', index=df.index)).fillna('').astype(str).str.strip()
+    addr = df.get('address_normalized', pd.Series('', index=df.index)).fillna('').astype(str).str.strip()
+    city = df.get('address_city', pd.Series('', index=df.index)).fillna('').astype(str).str.strip()
+
+    def _canonical(values: pd.Series, keys: pd.Series) -> pd.Series:
+        """Каждому непустому значению — самый частый вариант с тем же ключом.
+        Пустые не участвуют ни как кандидаты, ни как получатели."""
+        frame = pd.DataFrame({'value': values, 'key': keys})
+        filled = frame[frame['value'] != '']
+        best = filled.groupby('key')['value'].agg(lambda s: s.value_counts().idxmax())
+        return frame.apply(
+            lambda row: best.get(row['key'], row['value']) if row['value'] else row['value'],
+            axis=1,
+        )
+
+    # ---- 1. клиент: варианты, отличающиеся только регистром и пунктуацией ----
+    # 'ООО ИНТЕР МК-УРАЛ' и 'ООО "ИНТЕР МК-УРАЛ"', 'БЕЛОРУССКИЕ ПРОДУКТЫ' и
+    # 'Белорусские продукты'. Слияние непохожих имён — задача reconcile_clients,
+    # здесь только написание.
+    new_client = _canonical(client, client.map(_norm_key))
+
+    # ---- 2. адрес: варианты внутри одной точки ----
+    identity = new_client.where(new_client != '', point_name)
+    group_key = pd.Series(
+        [f'{_norm_key(i)}|{_norm_key(c)}|{address_fingerprint(a, c)}'
+         for i, c, a in zip(identity, city, addr)],
+        index=df.index,
+    )
+    new_addr = _canonical(addr, group_key)
+
+    stats = {
+        'clients': int((new_client != client).sum()),
+        'addresses': int((new_addr != addr).sum()),
+    }
+    df['client_normalized'] = new_client
+    df['address_normalized'] = new_addr
+
+    if stats['clients'] or stats['addresses']:
+        logger.info(
+            f"🔗 Канонизация перед ключом: написание клиента сведено у "
+            f"{stats['clients']} строк, адреса — у {stats['addresses']}"
+        )
+    return df, stats
+
+
 def recompute_point_key(df: pd.DataFrame) -> pd.DataFrame:
     """
     Векторизованный пересчёт point_key после реконсиляции client_normalized
@@ -493,11 +573,13 @@ def reconcile(df: pd.DataFrame) -> Tuple[pd.DataFrame, Dict[str, object]]:
     df, client_merges = reconcile_clients(df)
     df, address_backfills = reconcile_addresses(df)
     df, point_name_changes = reconcile_point_names(df)
+    df, canonical_stats = canonicalize_point_fields(df)
     df = recompute_point_key(df)
 
     report = {
         'client_merges': client_merges,
         'address_backfills': address_backfills,
+        'canonical_stats': canonical_stats,
         'point_name_changes': point_name_changes,
     }
     return df, report

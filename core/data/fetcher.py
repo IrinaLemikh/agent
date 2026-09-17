@@ -953,7 +953,8 @@ class Fetcher:
             df, recon_report = reconcile(df)
             logger.info(
                 f"🔗 Реконсиляция: слито групп клиентов — {len(recon_report['client_merges'])}, "
-                f"подтянуто городов — {len(recon_report['address_backfills'])}"
+                f"подтянуто городов — {len(recon_report['address_backfills'])}, "
+                f"сведено написаний адреса — {recon_report['canonical_stats']['addresses']}"
             )
 
            # Дедупликация по ticket_id — ТОЛЬКО среди строк, где он реально
