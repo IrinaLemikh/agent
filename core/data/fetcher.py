@@ -950,7 +950,7 @@ class Fetcher:
             # core/data/reconciler.py. Кэш нормализации (self.cache) этим не
             # затрагивается, реконсиляция работает только над DataFrame и
             # пересчитывается заново при каждом прогоне.
-            df, recon_report = reconcile(df)
+            df, recon_report = reconcile(df, qualifiers=self._point_name_aliases)
             logger.info(
                 f"🔗 Реконсиляция: слито групп клиентов — {len(recon_report['client_merges'])}, "
                 f"подтянуто городов — {len(recon_report['address_backfills'])}, "

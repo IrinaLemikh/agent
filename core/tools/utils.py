@@ -34,7 +34,7 @@ def get_preview_columns(df: pd.DataFrame) -> Tuple[List[str], Dict[str, str]]:
     """
     standard_cols = [
         'date', 'ticket_id', 'client_normalized', 'point_name',
-        'address_normalized', 'problem_normalized', 'status'
+        'address_normalized', 'problem_normalized', 'status', 'point_flags'
     ]
     ru_names = {
         'date': 'Дата',
@@ -43,7 +43,10 @@ def get_preview_columns(df: pd.DataFrame) -> Tuple[List[str], Dict[str, str]]:
         'point_name': 'Название точки',
         'address_normalized': 'Адрес',
         'problem_normalized': 'Проблема',
-        'status': 'Статус'
+        'status': 'Статус',
+        # Метки реконсилера: пусто — всё прочитано из данных, иначе сказано,
+        # что именно выведено и требует проверки (см. reconciler.FLAG_*)
+        'point_flags': '⚠️ Проверить'
     }
     available = [col for col in standard_cols if col in df.columns]
     return available, ru_names
