@@ -28,10 +28,12 @@ BACKLOG.md
 
 # Data & Cache
 cache/*
-logs/*
-*.log
 core/data/*.csv
 core/data/*.pkl
+
+# Логи НЕ игнорируем намеренно: без них разбор отказов идёт вслепую — по
+# логу прогона 21.09 стало видно, что аварийный путь _normalize_pair_with_cache
+# ходит в LLM поштучно. Держать их в репозитории вечно не нужно, см. BACKLOG.
 
 # Config cache
 config/__pycache__/
