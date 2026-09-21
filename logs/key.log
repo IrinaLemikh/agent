@@ -1,0 +1,475 @@
+2026-08-04 12:56:01.377 | WARNING  | core.llm.client:_call_api:178 - Попытка 1/3 не удалась: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+2026-09-15 20:04:13.109 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 65 новых пар client+address
+2026-09-15 20:04:24.574 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 1
+2026-09-15 20:04:24.574 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 49 новых проблем
+2026-09-15 20:04:31.208 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 50 новых пар client+address
+2026-09-15 20:04:39.748 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 3
+2026-09-15 20:04:39.748 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 41 новых проблем
+2026-09-15 20:04:44.780 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 260 новых пар client+address
+2026-09-15 20:05:01.731 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 7
+2026-09-15 20:05:01.732 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 287 новых проблем
+2026-09-15 20:05:33.669 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 397 новых пар client+address
+2026-09-15 20:05:50.203 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 14
+2026-09-15 20:05:50.204 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 667 новых проблем
+2026-09-15 20:07:01.506 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 202 новых пар client+address
+2026-09-15 20:07:18.101 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 24
+2026-09-15 20:07:18.102 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 501 новых проблем
+2026-09-15 20:08:12.550 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 154 новых пар client+address
+2026-09-15 20:08:28.745 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 31
+2026-09-15 20:08:28.746 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 503 новых проблем
+2026-09-15 20:09:22.838 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 208 новых пар client+address
+2026-09-15 20:09:39.245 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 39
+2026-09-15 20:09:39.246 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 632 новых проблем
+2026-09-15 20:10:49.157 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 163 новых пар client+address
+2026-09-15 20:11:04.504 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 48
+2026-09-15 20:11:04.506 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 549 новых проблем
+2026-09-15 20:12:03.840 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 151 новых пар client+address
+2026-09-15 20:12:19.549 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 56
+2026-09-15 20:12:19.550 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 594 новых проблем
+2026-09-15 20:13:24.075 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 106 новых пар client+address
+2026-09-15 20:13:39.720 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 64
+2026-09-15 20:13:39.722 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 553 новых проблем
+2026-09-15 20:14:42.448 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 93 новых пар client+address
+2026-09-15 20:14:57.500 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 71
+2026-09-15 20:14:57.501 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 448 новых проблем
+2026-09-15 20:15:47.635 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 67 новых пар client+address
+2026-09-15 20:15:58.508 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 77
+2026-09-15 20:15:58.510 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 447 новых проблем
+2026-09-15 20:16:49.078 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 92 новых пар client+address
+2026-09-15 20:17:03.371 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 83
+2026-09-15 20:17:03.373 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 575 новых проблем
+2026-09-15 20:18:07.914 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 155 новых пар client+address
+2026-09-15 20:18:24.914 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 91
+2026-09-15 20:18:24.916 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 803 новых проблем
+2026-09-15 20:19:54.113 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 73 новых пар client+address
+2026-09-15 20:20:06.872 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 100
+2026-09-15 20:20:06.873 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 530 новых проблем
+2026-09-15 20:21:08.141 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 56 новых пар client+address
+2026-09-15 20:21:17.669 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 107
+2026-09-15 20:21:17.670 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 475 новых проблем
+2026-09-15 20:22:11.156 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 199 новых пар client+address
+2026-09-15 20:22:26.128 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 114
+2026-09-15 20:22:26.130 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 534 новых проблем
+2026-09-15 20:23:24.008 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 245 новых пар client+address
+2026-09-15 20:23:39.071 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 123
+2026-09-15 20:23:39.073 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 411 новых проблем
+2026-09-15 20:24:22.714 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 151 новых пар client+address
+2026-09-15 20:24:38.947 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 129
+2026-09-15 20:24:38.948 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 423 новых проблем
+2026-09-15 20:25:28.957 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 90 новых пар client+address
+2026-09-15 20:25:43.204 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 135
+2026-09-15 20:25:43.205 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 386 новых проблем
+2026-09-15 20:26:29.650 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 430 новых пар client+address
+2026-09-15 20:26:44.066 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 144
+2026-09-15 20:26:44.068 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 263 новых проблем
+2026-09-15 20:27:13.856 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 51 новых пар client+address
+2026-09-15 20:27:22.863 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 148
+2026-09-15 20:27:22.864 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 189 новых проблем
+2026-09-15 20:27:42.642 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 96 новых пар client+address
+2026-09-15 20:27:57.318 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 151
+2026-09-15 20:27:57.319 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 198 новых проблем
+2026-09-15 20:28:18.816 | INFO     | core.data.fetcher:_process_sheet:720 - 📦 Нужно нормализовать 82 новых пар client+address
+2026-09-15 20:28:30.848 | INFO     | core.data.fetcher:_normalize_client_address_pairs:337 - ✅ Нормализация client+address завершена. Вызовов LLM: 154
+2026-09-15 20:28:30.849 | INFO     | core.data.fetcher:_process_sheet:727 - 📦 Нужно нормализовать 180 новых проблем
+2026-09-15 21:25:21.994 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:22.601 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:23.182 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:23.847 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:24.515 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:25.259 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:26.512 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:27.667 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:28.741 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:29.817 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:30.880 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:31.752 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:32.766 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:33.913 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:34.831 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:35.745 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:36.740 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:38.127 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:39.557 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:40.614 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:41.558 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:42.512 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:43.579 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-15 21:25:44.542 | INFO     | core.data.fetcher:_process_sheet:723 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:06.450 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:07.069 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:08.259 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:08.933 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:10.262 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:10.940 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:12.325 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:13.406 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:14.956 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:16.549 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:17.526 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:18.637 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:19.704 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:21.583 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:23.161 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:24.033 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:25.683 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:26.722 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:28.149 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:29.401 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:30.468 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:32.069 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:18:33.803 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:41.576 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:42.167 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:42.793 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:43.627 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:46.122 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:46.746 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:48.075 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:49.705 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:50.960 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:51.970 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:52.977 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:53.909 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:54.921 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:56.418 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:57.499 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:22:58.596 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:23:00.540 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:23:02.138 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:23:03.601 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:23:05.057 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:23:06.092 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:23:07.635 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:23:08.645 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:23:09.667 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:34.750 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:35.976 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:36.787 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:38.398 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:39.945 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:41.295 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:42.660 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:43.694 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:44.672 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:45.880 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:47.391 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:49.009 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:49.949 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:51.667 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:53.213 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:54.230 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:55.245 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:57.125 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:39:58.385 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:40:00.263 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:40:02.040 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:40:03.402 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:40:04.784 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 12:40:05.973 | INFO     | core.data.fetcher:_process_sheet:773 - ✅ Все пары client+address уже есть в кэше
+2026-09-16 19:42:46.830 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 65 новых пар client+address
+2026-09-16 19:42:58.346 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 1
+2026-09-16 19:42:59.628 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 50 новых пар client+address
+2026-09-16 19:43:08.361 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 2
+2026-09-16 19:43:09.057 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 260 новых пар client+address
+2026-09-16 19:43:26.345 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 5
+2026-09-16 19:43:27.221 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 397 новых пар client+address
+2026-09-16 19:43:43.576 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 9
+2026-09-16 19:43:44.278 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 202 новых пар client+address
+2026-09-16 19:44:00.974 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 12
+2026-09-16 19:44:01.796 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 154 новых пар client+address
+2026-09-16 19:44:18.598 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 14
+2026-09-16 19:44:19.560 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 208 новых пар client+address
+2026-09-16 19:44:35.663 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 17
+2026-09-16 19:44:36.886 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 163 новых пар client+address
+2026-09-16 19:44:52.353 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 19
+2026-09-16 19:44:53.679 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 151 новых пар client+address
+2026-09-16 19:45:09.757 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 21
+2026-09-16 19:45:11.089 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 106 новых пар client+address
+2026-09-16 19:45:27.378 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 23
+2026-09-16 19:45:28.586 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 93 новых пар client+address
+2026-09-16 19:45:43.074 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 24
+2026-09-16 19:45:44.103 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 67 новых пар client+address
+2026-09-16 19:45:55.203 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 25
+2026-09-16 19:45:56.223 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 92 новых пар client+address
+2026-09-16 19:46:10.544 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 26
+2026-09-16 19:46:11.896 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 155 новых пар client+address
+2026-09-16 19:46:28.499 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 28
+2026-09-16 19:46:29.852 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 73 новых пар client+address
+2026-09-16 19:46:42.157 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 29
+2026-09-16 19:46:43.299 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 56 новых пар client+address
+2026-09-16 19:46:53.015 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 30
+2026-09-16 19:46:54.367 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 199 новых пар client+address
+2026-09-16 19:47:09.934 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 32
+2026-09-16 19:47:11.600 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 245 новых пар client+address
+2026-09-16 19:47:27.394 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 35
+2026-09-16 19:47:28.808 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 151 новых пар client+address
+2026-09-16 19:47:44.437 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 37
+2026-09-16 19:47:45.657 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 90 новых пар client+address
+2026-09-16 19:47:59.279 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 38
+2026-09-16 19:48:00.548 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 430 новых пар client+address
+2026-09-16 19:48:14.510 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 43
+2026-09-16 19:48:15.772 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 51 новых пар client+address
+2026-09-16 19:48:25.073 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 44
+2026-09-16 19:48:26.471 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 96 новых пар client+address
+2026-09-16 19:48:41.064 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 45
+2026-09-16 19:48:42.537 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 82 новых пар client+address
+2026-09-16 19:48:54.508 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 46
+2026-09-18 18:09:26.908 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 65 новых пар client+address
+2026-09-18 18:09:38.412 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 1
+2026-09-18 18:09:39.044 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 50 новых пар client+address
+2026-09-18 18:09:47.730 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 2
+2026-09-18 18:09:48.557 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 260 новых пар client+address
+2026-09-18 18:12:04.730 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37ad10ad0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:14:19.897 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37ad107d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:14:33.066 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 5
+2026-09-18 18:14:34.053 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 397 новых пар client+address
+2026-09-18 18:16:47.353 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37a01ed50>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:16:47.355 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac379155cd0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:19:02.522 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37904add0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:21:17.690 | WARNING  | core.llm.client:_call_api:238 - Попытка 3/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac39fc96b10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:21:17.692 | ERROR    | core.llm.client:_call_api:245 - ❌ Все попытки исчерпаны, вызов LLM провалился: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac39fc96b10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:21:17.693 | ERROR    | core.data.fetcher:_normalize_client_address_pairs:374 - ❌ Ошибка при нормализации батча client+address #3: Не удалось получить ответ от LLM после 3 попыток: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac39fc96b10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:21:17.695 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 8
+2026-09-18 18:23:36.955 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac39fb9f710>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:25:52.121 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37ad55210>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:28:11.389 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37966f7d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:29:40.117 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-18 18:29:40.768 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-18 18:29:42.104 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-18 18:29:42.939 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 100 новых пар client+address
+2026-09-18 18:29:58.683 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 1
+2026-09-18 18:29:59.923 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 202 новых пар client+address
+2026-09-18 18:30:30.649 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37966e0d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:32:13.049 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378f888d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:32:45.818 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795da110>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:34:28.217 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac379591d90>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:34:45.268 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 4
+2026-09-18 18:34:46.326 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 154 новых пар client+address
+2026-09-18 18:35:05.081 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378eb9fd0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:36:59.769 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378601b90>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:37:20.248 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378602750>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:39:14.938 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378681650>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:39:39.512 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37962f150>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:41:30.105 | WARNING  | core.llm.client:_call_api:238 - Попытка 3/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37811f010>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:41:30.107 | ERROR    | core.llm.client:_call_api:245 - ❌ Все попытки исчерпаны, вызов LLM провалился: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37811f010>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:41:30.108 | ERROR    | core.data.fetcher:_normalize_client_address_pairs:374 - ❌ Ошибка при нормализации батча client+address #1: Не удалось получить ответ от LLM после 3 попыток: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37811f010>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:41:30.111 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 5
+2026-09-18 18:41:54.683 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37815c850>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:43:45.274 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3785ed010>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:44:13.946 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795dfb10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:46:08.634 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3785ee810>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:46:29.112 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac379569710>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:48:23.802 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37956a310>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:48:44.280 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3791d0290>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:50:43.066 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37965f610>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:51:07.640 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac373debb10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:52:58.234 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3791d1150>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:53:22.808 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3787d9490>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:55:17.501 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795d9290>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:55:37.978 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac39fc960d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:57:32.664 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3791d09d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:57:57.240 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378eb86d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 18:59:51.929 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3786242d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:00:16.504 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378680ed0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:02:11.196 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37849fed0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:02:35.772 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37ad54d50>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:04:34.552 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378f79850>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:04:55.032 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37811f2d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:06:53.818 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37828bd90>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:07:10.200 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37969e990>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:09:13.081 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37959d610>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:09:29.464 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37962d650>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:11:28.250 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3786036d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:11:48.728 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37815fad0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:13:47.538 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378175910>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:14:03.896 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378177250>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:16:02.683 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795d8250>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:16:19.074 | WARNING  | core.llm.client:_call_api:238 - Попытка 3/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37959fc10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:16:19.074 | ERROR    | core.llm.client:_call_api:245 - ❌ Все попытки исчерпаны, вызов LLM провалился: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37959fc10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:16:19.075 | ERROR    | core.data.fetcher:_normalize_pair_with_cache:577 - ❌ Ошибка при одиночной нормализации пары: Не удалось получить ответ от LLM после 3 попыток: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37959fc10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:18:17.849 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3792457d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:18:34.232 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795dadd0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:20:37.114 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac379299710>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:20:49.400 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac379592f90>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:22:56.376 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37962c310>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:23:04.568 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac39fbc41d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:25:11.545 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37969f350>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:25:23.832 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795de810>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:27:30.811 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378289f10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:27:39.000 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37811ec50>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:29:45.978 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378626e50>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:29:54.168 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3791572d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:32:01.146 | WARNING  | core.llm.client:_call_api:238 - Попытка 3/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37969d910>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:32:01.148 | ERROR    | core.llm.client:_call_api:245 - ❌ Все попытки исчерпаны, вызов LLM провалился: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37969d910>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:32:01.149 | ERROR    | core.data.fetcher:_normalize_pair_with_cache:577 - ❌ Ошибка при одиночной нормализации пары: Не удалось получить ответ от LLM после 3 попыток: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37969d910>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:32:09.336 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3787df050>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:34:16.314 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378c59810>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:34:28.602 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378600390>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:36:35.578 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795dcb10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:36:43.769 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac379154690>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:38:50.747 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378288310>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:41:05.915 | WARNING  | core.llm.client:_call_api:238 - Попытка 3/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378eb98d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:41:05.917 | ERROR    | core.llm.client:_call_api:245 - ❌ Все попытки исчерпаны, вызов LLM провалился: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378eb98d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:41:05.918 | ERROR    | core.data.fetcher:_normalize_pair_with_cache:577 - ❌ Ошибка при одиночной нормализации пары: Не удалось получить ответ от LLM после 3 попыток: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378eb98d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:43:21.083 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795de490>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:45:40.345 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37962dbd0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:47:55.514 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37882e9d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:50:10.683 | WARNING  | core.llm.client:_call_api:238 - Попытка 3/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37942a150>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:50:10.687 | ERROR    | core.llm.client:_call_api:245 - ❌ Все попытки исчерпаны, вызов LLM провалился: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37942a150>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:50:10.687 | ERROR    | core.data.fetcher:_normalize_pair_with_cache:577 - ❌ Ошибка при одиночной нормализации пары: Не удалось получить ответ от LLM после 3 попыток: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37942a150>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:52:25.850 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378627c50>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:54:41.028 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3787df8d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:57:00.282 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795de310>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 19:59:15.451 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac379e9add0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:01:38.811 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3786832d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:03:58.075 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37959e510>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:06:17.343 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3780b0d90>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:08:32.507 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3787d9a10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:10:47.675 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795d93d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:13:02.843 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac378f89950>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:15:18.019 | WARNING  | core.llm.client:_call_api:238 - Попытка 3/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37828b510>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:15:18.036 | ERROR    | core.llm.client:_call_api:245 - ❌ Все попытки исчерпаны, вызов LLM провалился: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37828b510>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:15:18.036 | ERROR    | core.data.fetcher:_normalize_pair_with_cache:577 - ❌ Ошибка при одиночной нормализации пары: Не удалось получить ответ от LLM после 3 попыток: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37828b510>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:17:33.178 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3780b2a90>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:19:48.346 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37887de90>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:22:03.514 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac379e1d510>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:24:22.778 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac379e1fd10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:26:42.042 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3787dbb90>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:29:01.307 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37a08c510>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:31:16.474 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37942bcd0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:33:31.644 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37811d8d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:35:46.810 | WARNING  | core.llm.client:_call_api:238 - Попытка 3/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37a08e9d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:35:46.812 | ERROR    | core.llm.client:_call_api:245 - ❌ Все попытки исчерпаны, вызов LLM провалился: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37a08e9d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:35:46.812 | ERROR    | core.data.fetcher:_normalize_pair_with_cache:577 - ❌ Ошибка при одиночной нормализации пары: Не удалось получить ответ от LLM после 3 попыток: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37a08e9d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:38:06.074 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3795d98d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:40:21.243 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3782f5710>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:42:40.506 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac379bf60d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:44:55.674 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac36a872e90>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:47:10.842 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac3782f4c90>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:49:26.010 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37959e410>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:51:41.178 | WARNING  | core.llm.client:_call_api:238 - Попытка 3/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37887ffd0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:51:41.181 | ERROR    | core.llm.client:_call_api:245 - ❌ Все попытки исчерпаны, вызов LLM провалился: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37887ffd0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:51:41.181 | ERROR    | core.data.fetcher:_normalize_pair_with_cache:577 - ❌ Ошибка при одиночной нормализации пары: Не удалось получить ответ от LLM после 3 попыток: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37887ffd0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:53:56.346 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac36a871610>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:56:11.514 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37a0870d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 20:58:26.682 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37887c2d0>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 21:00:45.946 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac36a871590>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 21:03:01.114 | WARNING  | core.llm.client:_call_api:238 - Попытка 2/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac37811ef50>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-18 21:05:20.410 | WARNING  | core.llm.client:_call_api:238 - Попытка 1/3 не удалась: HTTPSConnectionPool(host='api.deepseek.com', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.deepseek.com', port=443) at 0x7ac39fbc6a10>, 'Connection to api.deepseek.com timed out. (connect timeout=180)'))
+2026-09-20 11:07:17.566 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-20 11:07:18.313 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-20 11:07:18.898 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-20 11:07:21.227 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-20 11:07:22.508 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-20 11:07:24.432 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 100 новых пар client+address
+2026-09-20 11:07:42.384 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 1
+2026-09-20 11:07:45.134 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 208 новых пар client+address
+2026-09-20 11:08:01.637 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 4
+2026-09-20 11:08:03.630 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 163 новых пар client+address
+2026-09-20 11:08:19.267 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 6
+2026-09-20 11:08:20.934 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 151 новых пар client+address
+2026-09-20 11:08:37.561 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 8
+2026-09-20 11:08:39.352 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 106 новых пар client+address
+2026-09-20 11:08:55.139 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 10
+2026-09-20 11:08:56.111 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 93 новых пар client+address
+2026-09-20 11:09:10.407 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 11
+2026-09-20 11:09:11.926 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 67 новых пар client+address
+2026-09-20 11:09:22.922 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 12
+2026-09-20 11:09:24.558 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 92 новых пар client+address
+2026-09-20 11:09:39.115 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 13
+2026-09-20 11:09:40.782 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 155 новых пар client+address
+2026-09-20 11:09:57.523 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 15
+2026-09-20 11:09:59.214 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 73 новых пар client+address
+2026-09-20 11:10:11.808 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 16
+2026-09-20 11:10:13.571 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 56 новых пар client+address
+2026-09-20 11:10:23.513 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 17
+2026-09-20 11:10:25.523 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 199 новых пар client+address
+2026-09-20 11:10:40.739 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 19
+2026-09-20 11:10:42.721 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 245 новых пар client+address
+2026-09-20 11:10:58.346 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 22
+2026-09-20 11:11:00.368 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 150 новых пар client+address
+2026-09-20 11:11:16.232 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 24
+2026-09-20 11:11:18.108 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 90 новых пар client+address
+2026-09-20 11:11:31.758 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 25
+2026-09-20 11:11:32.770 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 430 новых пар client+address
+2026-09-20 11:11:46.356 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 30
+2026-09-20 11:11:47.881 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 51 новых пар client+address
+2026-09-20 11:11:56.873 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 31
+2026-09-20 11:11:58.706 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 96 новых пар client+address
+2026-09-20 11:12:13.362 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 32
+2026-09-20 11:12:15.140 | INFO     | core.data.fetcher:_process_sheet:783 - 📦 Нужно нормализовать 82 новых пар client+address
+2026-09-20 11:12:27.457 | INFO     | core.data.fetcher:_normalize_client_address_pairs:384 - ✅ Нормализация client+address завершена. Вызовов LLM: 33
+2026-09-21 13:43:02.937 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:03.763 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:04.585 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:05.437 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:06.268 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:07.026 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:07.800 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:09.070 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:10.342 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:11.454 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:12.913 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:13.900 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:15.975 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:17.318 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:19.653 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:20.950 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:22.752 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:24.001 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:25.212 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:26.231 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:27.523 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:28.521 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:29.584 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 13:43:30.669 | INFO     | core.data.fetcher:_process_sheet:786 - ✅ Все пары client+address уже есть в кэше
+2026-09-21 18:16:52.181 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 65 новых пар client+address
+2026-09-21 18:17:04.911 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 1
+2026-09-21 18:17:06.291 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 50 новых пар client+address
+2026-09-21 18:17:15.650 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 2
+2026-09-21 18:17:17.004 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 260 новых пар client+address
+2026-09-21 18:17:35.079 | WARNING  | core.llm.client:_call_api:294 - Попытка 1/6 — ответ получен, но отклонён: Response ended prematurely
+2026-09-21 18:17:54.727 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 5
+2026-09-21 18:17:56.289 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 397 новых пар client+address
+2026-09-21 18:18:14.341 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 9
+2026-09-21 18:18:15.790 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 202 новых пар client+address
+2026-09-21 18:18:33.813 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 12
+2026-09-21 18:18:35.274 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 154 новых пар client+address
+2026-09-21 18:18:53.215 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 14
+2026-09-21 18:18:54.588 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 208 новых пар client+address
+2026-09-21 18:19:12.229 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 17
+2026-09-21 18:19:13.878 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 163 новых пар client+address
+2026-09-21 18:19:30.717 | ERROR    | core.data.fetcher:_normalize_client_address_pairs:392 - ❌ Ошибка при нормализации батча client+address #1: Не удалось извлечь результат нормализации клиент+адрес из ответа API: Extra data: line 1 column 18199 (char 18198)
+2026-09-21 18:19:30.871 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 18
+2026-09-21 18:21:22.139 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 151 новых пар client+address
+2026-09-21 18:21:39.354 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 120
+2026-09-21 18:21:41.068 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 106 новых пар client+address
+2026-09-21 18:21:57.870 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 122
+2026-09-21 18:21:59.507 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 93 новых пар client+address
+2026-09-21 18:22:15.020 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 123
+2026-09-21 18:22:16.497 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 67 новых пар client+address
+2026-09-21 18:22:28.607 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 124
+2026-09-21 18:22:30.300 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 92 новых пар client+address
+2026-09-21 18:22:45.667 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 125
+2026-09-21 18:22:47.586 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 155 новых пар client+address
+2026-09-21 18:23:05.395 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 127
+2026-09-21 18:23:07.023 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 73 новых пар client+address
+2026-09-21 18:23:20.149 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 128
+2026-09-21 18:23:21.663 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 56 новых пар client+address
+2026-09-21 18:23:32.335 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 129
+2026-09-21 18:23:34.050 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 199 новых пар client+address
+2026-09-21 18:23:50.754 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 131
+2026-09-21 18:23:52.729 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 245 новых пар client+address
+2026-09-21 18:24:09.606 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 134
+2026-09-21 18:24:10.978 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 150 новых пар client+address
+2026-09-21 18:24:28.090 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 136
+2026-09-21 18:24:29.917 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 90 новых пар client+address
+2026-09-21 18:24:44.695 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 137
+2026-09-21 18:24:46.384 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 430 новых пар client+address
+2026-09-21 18:25:01.289 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 142
+2026-09-21 18:25:03.398 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 51 новых пар client+address
+2026-09-21 18:25:13.237 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 143
+2026-09-21 18:25:14.985 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 96 новых пар client+address
+2026-09-21 18:25:30.581 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 144
+2026-09-21 18:25:32.507 | INFO     | core.data.fetcher:_process_sheet:842 - 📦 Нужно нормализовать 82 новых пар client+address
+2026-09-21 18:25:45.863 | INFO     | core.data.fetcher:_normalize_client_address_pairs:407 - ✅ Нормализация client+address завершена. Вызовов LLM: 145
