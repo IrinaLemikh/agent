@@ -142,12 +142,26 @@ MIN_LLM_DELAY = 1.0 / LLM_CALLS_PER_SECOND
 CATEGORY_FUZZY_THRESHOLD = 90
 PROBLEM_BATCH_SIZE = 100
 
-# Батч client+address (пары) и параллельность батчей. MAX_WORKERS скромный
-# осознанно — лимит API (2500 конкурентных соединений) далеко не узкое место,
-# число ограничено, чтобы не рисковать качеством/не гнаться за скоростью
-# сильнее, чем нужно (см. обсуждение в чате).
+# Параллельность обоих конвейеров. Размер батча и число воркеров — вещи разные:
+# батч определяет, сколько пунктов едет в ОДНОМ промпте (и потому влияет на
+# единообразие формулировок внутри него), а воркеры — сколько промптов летит
+# одновременно. Увеличение воркеров на качество не влияет никак.
+#
+# Было 5 у пар и ноль (строго последовательно) у проблем. Замер 19-20.09.2026:
+# у проблем 102 батча против 37 у пар, то есть весь выигрыш лежал в конвейере,
+# который вообще не параллелился. Лимит API — 2500 конкурентных соединений,
+# так что 20 далеко не потолок; держим с запасом, потому что узкое место
+# теперь не в нашей стороне.
+PROBLEM_MAX_WORKERS = 20
 CLIENT_ADDRESS_BATCH_SIZE = 100
-CLIENT_ADDRESS_MAX_WORKERS = 5
+CLIENT_ADDRESS_MAX_WORKERS = 20
+
+# Как часто сбрасывать кэш на диск. Раньше _save_cache() звался после КАЖДОГО
+# батча, а он выгружает оба JSON целиком (проблемы это ~2.4 МБ) — при 139
+# батчах выходило под полгигабайта переписывания. Компромисс: при обрыве
+# теряется работа максимум пяти батчей, и она просто переделается при
+# следующем запуске, потому что незакэшированное считается необработанным.
+SAVE_CACHE_EVERY_BATCHES = 5
 
 # Сколько строк обрабатываем между проверками на прерывание в ЭТАПЕ 3
 CANCEL_CHECK_EVERY_ROWS = 500
@@ -356,6 +370,10 @@ class Fetcher:
                 for idx, batch in enumerate(batches)
             }
 
+            # Считаем ЗАВЕРШЁННЫЕ батчи, а не idx: as_completed отдаёт их в
+            # произвольном порядке, и "каждый пятый по idx" сбрасывал бы кэш
+            # неравномерно
+            done = 0
             for future in as_completed(future_to_idx):
                 # Точка прерывания: батчи здесь самые долгие, и продолжать
                 # их, когда результата уже никто не ждёт, дороже всего
@@ -378,9 +396,14 @@ class Fetcher:
 
                 self.stats["llm_calls"] += 1
                 self.cache["client_address"].update(remapped)
+                done += 1
                 logger.debug(f"    ✅ батч #{idx+1}/{len(batches)}: обработано {len(remapped)} пар")
-                self._save_cache()
+                if done % SAVE_CACHE_EVERY_BATCHES == 0:
+                    self._save_cache()
 
+        # Финальный сброс обязателен: последние батчи почти никогда не попадают
+        # ровно на кратность, и без него их результат остался бы только в памяти
+        self._save_cache()
         logger.info(f"✅ Нормализация client+address завершена. Вызовов LLM: {self.stats['llm_calls']}")
 
     # =========================================================================
@@ -479,60 +502,96 @@ class Fetcher:
         if not remaining:
             return results
 
-        # ---- Слой 2: LLM батчами ----
-        total_batches = (len(remaining) + PROBLEM_BATCH_SIZE - 1) // PROBLEM_BATCH_SIZE
+        # ---- Слой 2: LLM батчами, параллельно ----
+        # Раньше этот цикл был строго последовательным, в отличие от соседнего
+        # конвейера пар. Замер показал 102 батча проблем против 37 у пар — то
+        # есть основное время прогона уходило именно сюда, и уходило по одному
+        # батчу за раз. Приём тот же, что в _normalize_client_address_pairs:
+        # воркер считает и возвращает, главный поток пишет в общее состояние.
+        batches = [remaining[i:i + PROBLEM_BATCH_SIZE]
+                   for i in range(0, len(remaining), PROBLEM_BATCH_SIZE)]
 
-        for batch_idx in range(total_batches):
-            self._cancel_check()  # точка прерывания между батчами проблем
+        with ThreadPoolExecutor(max_workers=PROBLEM_MAX_WORKERS) as executor:
+            future_to_idx = {
+                executor.submit(self._categorize_problems_worker, batch): idx
+                for idx, batch in enumerate(batches)
+            }
 
-            start = batch_idx * PROBLEM_BATCH_SIZE
-            end = min(start + PROBLEM_BATCH_SIZE, len(remaining))
-            batch = remaining[start:end]
+            done = 0
+            for future in as_completed(future_to_idx):
+                # Точка прерывания: раньше стояла между батчами, теперь между
+                # готовыми результатами — смысл и частота те же
+                try:
+                    self._cancel_check()
+                except ProcessingCancelled:
+                    logger.warning("⏹️ Обработка прервана — отменяю оставшиеся батчи проблем")
+                    for pending in future_to_idx:
+                        pending.cancel()
+                    raise
 
-            # id -> сырое значение, id локальный для этого вызова (не завязан
-            # на индекс строки/колонки — это и защищает от "схлопывания",
-            # если в таблице вдруг нет какой-то колонки)
-            id_to_value = {str(i + 1): val for i, val in enumerate(batch)}
+                idx = future_to_idx[future]
+                try:
+                    batch_results = future.result()
+                except LLMCallError as e:
+                    logger.error(f"❌ Ошибка при категоризации батча проблем #{idx+1}: {e}")
+                    # Ничего не кэшируем — весь батч останется "трудным остатком"
+                    # и будет повторно обработан при следующем запуске.
+                    continue
 
-            try:
-                response = self.llm_client.categorize_and_normalize_batch(
-                    items=id_to_value,
-                    category_names=self._category_names,
-                    categories_text=self._categories_prompt_text,
-                    glossary_text=self._glossary_prompt_text,
-                )
                 self.stats["llm_calls"] += 1
+                for val, entry in batch_results.items():
+                    results[val] = entry
+                    self.cache["problem"][val.lower()] = entry
 
-                for item_id, val in id_to_value.items():
-                    if item_id in response:
-                        entry = response[item_id]
-                        # Небольшая защита от кривого ответа модели
-                        normalized = entry.get("normalized") or val
-                        tags = entry.get("tags") or ["Нераспределено"]
-                        entry = {"normalized": normalized, "tags": tags}
-                        results[val] = entry
-                        self.cache["problem"][val.lower()] = entry
-                        logger.debug(f"    ✅ problem: '{val[:30]}...' -> '{normalized[:30]}...' {tags}")
-                    else:
-                        # Модель потеряла пункт — НЕ кэшируем мусор, оставляем
-                        # значение необработанным до следующего запуска.
-                        logger.warning(f"⚠️ LLM не вернула ответ для пункта {item_id} ('{val[:40]}...'), "
-                                       f"пропускаем без кэширования")
+                done += 1
+                logger.debug(f"    ✅ батч проблем #{idx+1}/{len(batches)}: "
+                             f"обработано {len(batch_results)} значений")
+                if done % SAVE_CACHE_EVERY_BATCHES == 0:
+                    self._save_cache()
 
-            except LLMCallError as e:
-                logger.error(f"❌ Ошибка при категоризации батча проблем: {e}")
-                # Ничего не кэшируем — весь батч останется "трудным остатком"
-                # и будет повторно обработан при следующем запуске.
-
-            if batch_idx < total_batches - 1:
-                time.sleep(MIN_LLM_DELAY)
-
-            self._save_cache()
-            logger.debug(f"💾 Кэш сохранён после батча проблем {batch_idx+1}/{total_batches}")
-
+        self._save_cache()
         logger.info(f"✅ Нормализация+категоризация проблем завершена. "
                     f"Слой 1: {self.stats['layer1_matches']}, вызовов LLM: {self.stats['llm_calls']}")
         return results
+
+    def _categorize_problems_worker(self, batch: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        Один батч проблем: вызов LLM плюс раскладка ответа обратно на исходные
+        значения. Работает в отдельном потоке, поэтому НИЧЕГО не пишет ни в
+        self.cache, ни в self.stats — только возвращает результат. Общее
+        состояние трогает главный поток, и именно это избавляет от гонок за
+        словарь кэша (тот же приём, что у _normalize_client_address_worker).
+
+        LLMCallError наружу не глушится намеренно: её ловит главный поток и
+        решает не кэшировать батч целиком.
+        """
+        # id -> сырое значение, id локальный для этого вызова (не завязан
+        # на индекс строки/колонки — это и защищает от "схлопывания",
+        # если в таблице вдруг нет какой-то колонки)
+        id_to_value = {str(i + 1): val for i, val in enumerate(batch)}
+
+        response = self.llm_client.categorize_and_normalize_batch(
+            items=id_to_value,
+            category_names=self._category_names,
+            categories_text=self._categories_prompt_text,
+            glossary_text=self._glossary_prompt_text,
+        )
+
+        out: Dict[str, Dict[str, Any]] = {}
+        for item_id, val in id_to_value.items():
+            if item_id not in response:
+                # Модель потеряла пункт — НЕ кэшируем мусор, оставляем
+                # значение необработанным до следующего запуска.
+                logger.warning(f"⚠️ LLM не вернула ответ для пункта {item_id} ('{val[:40]}...'), "
+                               f"пропускаем без кэширования")
+                continue
+            entry = response[item_id]
+            # Небольшая защита от кривого ответа модели
+            out[val] = {
+                "normalized": entry.get("normalized") or val,
+                "tags": entry.get("tags") or ["Нераспределено"],
+            }
+        return out
 
     # =========================================================================
     # ИЗМЕНЕНО: быстрая нормализация с кэшем — теперь по ПАРЕ (client_raw,

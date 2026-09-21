@@ -35,6 +35,21 @@ CATEGORIZATION_TOOL_NAME = "submit_categorization"
 # юрлицо могут быть перепутаны между двумя сырыми полями одной строки)
 CLIENT_ADDRESS_TOOL_NAME = "submit_client_address"
 
+# Таймаут РАЗДЕЛЁН на дозвон и чтение. Раньше стоял один скаляр 180, и requests
+# ставил его на обе фазы сразу — поэтому обрыв связи висел по 180 секунд на
+# попытку, и батч тратил 3 x 180 = девять минут, не отправив ни одного байта.
+#
+# Дозвон до живого хоста занимает доли секунды; если не вышло за 15, не выйдет
+# и за 180 — честнее быстро уйти в ретрай. А чтение наоборот сделано щедрее
+# прежнего: батч из 100 пунктов это ~12 тысяч токенов генерации, минуты тут норма.
+CONNECT_TIMEOUT = 15
+READ_TIMEOUT = 300
+
+# Размер пула соединений. Держим с запасом над числом воркеров-батчей: если
+# пул меньше, urllib3 молча выбрасывает лишние соединения и каждый следующий
+# батч снова платит за TLS-рукопожатие — ровно то, от чего Session и заводим.
+CONNECTION_POOL_SIZE = 32
+
 
 def _compose_address(city: str, street: str, house: str, korpus: str, apartment: str) -> str:
     """
@@ -160,6 +175,24 @@ class DeepSeekClient:
             "Content-Type": "application/json"
         }
 
+        # Session с пулом вместо голого requests.post на каждый вызов. Раньше
+        # каждый батч открывал соединение с нуля и платил за полное TLS-
+        # рукопожатие: на холодном прогоне это 37 рукопожатий на пары плюс 102
+        # на проблемы. С пулом воркеры переиспользуют уже открытые соединения,
+        # и число дозвонов падает до числа воркеров.
+        #
+        # Ретраи адаптера выключены намеренно (max_retries=0): своя логика в
+        # _call_api считает попытки, пишет в лог причину и выдерживает паузу.
+        # Два уровня ретраев перемножились бы, и 3 попытки стали бы девятью.
+        self._session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(
+            pool_connections=CONNECTION_POOL_SIZE,
+            pool_maxsize=CONNECTION_POOL_SIZE,
+            max_retries=0,
+        )
+        self._session.mount("https://", adapter)
+        self._session.mount("http://", adapter)
+
     # =========================================================================
     # НОВОЕ: общий низкоуровневый вызов API с ретраями. Используется и ask(),
     # и categorize_and_normalize_batch() — чтобы не дублировать retry-логику.
@@ -170,7 +203,7 @@ class DeepSeekClient:
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Any] = None,
         temperature: float = 0.1,
-        max_retries: int = 2,
+        max_retries: int = 5,
         base_delay: float = 1.0,
         disable_thinking: bool = False,
     ) -> Dict[str, Any]:
@@ -180,6 +213,15 @@ class DeepSeekClient:
 
         При исчерпании ретраев или невозможности получить валидный JSON
         бросает LLMCallError — НИКОГДА не возвращает "суррогатный" ответ.
+
+        max_retries=5 (было 2) — число взято из замера 19.09.2026, а не с
+        потолка: с VPS терялось 45% попыток установить соединение с
+        api.deepseek.com (22 из 40), при том что до github и cloudflare
+        потерь не было вовсе. Три попытки оставляли бы 9% отказов на каждое
+        соединение, шесть оставляют 0.8%. Соединение теперь переиспользуется
+        из пула, так что дозвон происходит редко и цена лишних попыток мала.
+        Если маршрут починят, число можно вернуть к 2 — вреда от него нет,
+        просто перестанет быть нужным.
 
         disable_thinking: если True, добавляет {"thinking": {"type": "disabled"}}
         в payload. НУЖНО для двух вещей сразу (см. документацию DeepSeek):
@@ -206,11 +248,11 @@ class DeepSeekClient:
 
         for attempt in range(max_retries + 1):
             try:
-                response = requests.post(
+                response = self._session.post(
                     f"{self.base_url}/chat/completions",
                     headers=self.headers,
                     json=payload,
-                    timeout=180
+                    timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
                 )
                 response.raise_for_status()
                 result = response.json()
@@ -235,7 +277,23 @@ class DeepSeekClient:
                     except Exception:
                         error_body = None
                 body_suffix = f" | Тело ответа API: {error_body}" if error_body else ""
-                logger.warning(f"Попытка {attempt + 1}/{max_retries + 1} не удалась: {e}{body_suffix}")
+
+                # Фаза отказа по тексту исключения читается плохо, а разбор
+                # начинается именно с неё. Порядок проверок обязателен:
+                # ConnectTimeout это наследник ConnectionError, и общий случай
+                # перехватил бы частный.
+                if isinstance(e, requests.exceptions.ConnectTimeout):
+                    phase = f"TCP-соединение не установлено за {CONNECT_TIMEOUT}с"
+                elif isinstance(e, requests.exceptions.ReadTimeout):
+                    phase = f"соединение установлено, ответ не получен за {READ_TIMEOUT}с"
+                elif isinstance(e, requests.exceptions.ConnectionError):
+                    phase = "соединение разорвано до получения ответа"
+                else:
+                    phase = "ответ получен, но отклонён"
+
+                logger.warning(
+                    f"Попытка {attempt + 1}/{max_retries + 1} — {phase}: {e}{body_suffix}"
+                )
                 if attempt < max_retries:
                     sleep_time = base_delay * (2 ** attempt)
                     logger.info(f"Повтор через {sleep_time:.1f}с...")
@@ -338,6 +396,12 @@ class DeepSeekClient:
                                     "type": "object",
                                     "properties": {
                                         "client_normalized": {"type": "string"},
+                                        # Второй уровень того же клиента: фамилия
+                                        # франчайзи под вывеской зонтика. Отдельным
+                                        # полем, а НЕ внутри client_normalized и не
+                                        # внутри point_name — см. TASK_NORMALIZE_
+                                        # CLIENT_ADDRESS, пункт 1a.
+                                        "client_qualifier": {"type": "string"},
                                         "point_name": {"type": "string"},
                                         "city": address_field,
                                         "street": address_field,
@@ -346,7 +410,7 @@ class DeepSeekClient:
                                         "apartment": address_field,
                                     },
                                     "required": [
-                                        "client_normalized", "point_name",
+                                        "client_normalized", "client_qualifier", "point_name",
                                         "city", "street", "house", "korpus", "apartment",
                                     ],
                                 },
@@ -459,6 +523,10 @@ class DeepSeekClient:
             )
             cleaned_results[item_id] = {
                 "client_normalized": client_normalized,
+                # Копится в кэше отдельным полем. Дальше по конвейеру пока не
+                # идёт: в parquet и отчёты попадёт отдельным решением, когда
+                # станет видно, что именно собралось.
+                "client_qualifier": (entry.get("client_qualifier") or "").strip(),
                 "point_name": point_name,
                 "address_normalized": address_normalized,
                 # Город отдельным полем — чтобы реконсилер знал факт его

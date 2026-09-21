@@ -23,6 +23,9 @@ service_account*.json
 *.key
 *.pem
 
+# Личное
+BACKLOG.md
+
 # Data & Cache
 cache/*
 logs/*

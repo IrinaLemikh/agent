@@ -268,7 +268,10 @@ def reconcile_clients(
     return df, merge_log
 
 
-def reconcile_addresses(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict[str, object]]]:
+def reconcile_addresses(
+    df: pd.DataFrame,
+    use_default: bool = True,
+) -> Tuple[pd.DataFrame, List[Dict[str, object]]]:
     """
     Делает две вещи над адресами.
 
@@ -370,6 +373,13 @@ def reconcile_addresses(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict[str, 
         if source is None:
             source, origin = city_from_point_name(point_names[idx]), 'название'
         if source is None:
+            if not use_default:
+                # Оставляем строку БЕЗ города намеренно. Дефолт заполняет всё
+                # подряд и тем самым стирает состояние "ещё не знаем" — а
+                # именно оно нужно, чтобы следующий проход, уже после
+                # backfill_identity, доделал то, что стало выводимо.
+                # См. порядок шагов в reconcile().
+                continue
             source, origin = DEFAULT_CITY, 'дефолт'
 
         city[idx] = source
@@ -690,17 +700,41 @@ def backfill_identity(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[Dict[str, st
                           'client': client, 'point_name': point_name})
     named = named[(named['identity'] != '') & (addr != '')]
     owners = named.groupby('house')['identity'].agg(lambda s: set(s))
+
+    # Запасной поиск — по отпечатку БЕЗ города. Нужен потому, что город к
+    # этому моменту известен не у всех строк: у названных лестница его уже
+    # проставила (по клиенту), а у безымянных взять его было неоткуда. Ключ
+    # (город, отпечаток) у соседей по одному дому из-за этого расходится, и
+    # хозяин не находится — ровно так 2 строки на "Урицкого 36" оставались
+    # безымянными, а потом получали дефолтный Екатеринбург вместо Кургана.
+    #
+    # Отпечаток город отрезает, поэтому "Ленина, 1" в разных городах даст
+    # один ключ — но защита та же, что и в основном поиске: если хозяев
+    # больше одного, не трогаем ничего.
+    owners_by_fp = (
+        named.assign(fp=[h.split('|', 1)[1] for h in named['house']])
+             .groupby('fp')['identity'].agg(lambda s: set(s))
+    )
     # у соседей по дому подпись стоит в клиенте или только в названии точки —
     # в ту же колонку пишем и мы, иначе точка опознавалась бы иначе, чем соседи
     by_client = named.groupby('house')['client'].agg(lambda s: (s != '').all())
 
     log: List[Dict[str, str]] = []
     for idx in df.index[(identity == '') & (addr != '')]:
-        candidates = owners.get(house[idx])
+        key = house[idx]
+        candidates = owners.get(key)
+        if not candidates and city[idx] == '':
+            # Города у этой строки нет, поэтому ключ с городом заведомо ни с
+            # кем не совпал — пробуем по одному отпечатку (см. выше)
+            fp_key = key.split('|', 1)[1]
+            fp_candidates = owners_by_fp.get(fp_key)
+            if fp_candidates and len(fp_candidates) == 1:
+                candidates = fp_candidates
+                key = next(k for k in owners.index if k.split('|', 1)[1] == fp_key)
         if not candidates or len(candidates) != 1:
             continue  # хозяина нет вовсе или их несколько — не гадаем
         owner = next(iter(candidates))
-        column = 'client_normalized' if by_client[house[idx]] else 'point_name'
+        column = 'client_normalized' if by_client[key] else 'point_name'
         df.at[idx, column] = owner
         _add_flag(df, [idx], FLAG_CLIENT_GUESSED)
         log.append({'address': addr[idx], 'owner': owner})
@@ -922,8 +956,20 @@ def reconcile(
 
     df, client_merges = reconcile_clients(df)
     df, role_swaps = reconcile_client_point_roles(df)
-    df, address_backfills = reconcile_addresses(df)
+    # Города и подпись безымянных строк взаимно зависимы: backfill_identity
+    # опознаёт дом по (город, отпечаток), а лестница городов ищет город по
+    # клиенту. Одним проходом в любом порядке что-то теряется — замерено
+    # 21.09.2026 на всех данных: если поставить backfill_identity первым,
+    # чинятся 15 строк (Урицкого 36 получает Курган вместо Екатеринбурга), но
+    # ломаются 2 ("Ватутина 28" теряет Первоуральск и падает на дефолт).
+    #
+    # Круг размыкается не порядком, а откладыванием дефолта: пока он не
+    # сработал, строка честно остаётся без города, и второй проход доделывает
+    # её, уже зная клиента.
+    df, address_backfills = reconcile_addresses(df, use_default=False)
     df, identity_backfills = backfill_identity(df)
+    df, address_backfills_2 = reconcile_addresses(df, use_default=True)
+    address_backfills = address_backfills + address_backfills_2
     df, form_fills = reconcile_point_forms(df, qualifiers)
     df, point_name_changes = reconcile_point_names(df)
     df, canonical_stats = canonicalize_point_fields(df)
