@@ -35,7 +35,7 @@ import json
 import re
 import os
 from pathlib import Path
-from collections import defaultdict
+from collections import defaultdict, Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List, Dict, Any, Optional, Tuple, Set
 import pandas as pd
@@ -404,7 +404,60 @@ class Fetcher:
         # Финальный сброс обязателен: последние батчи почти никогда не попадают
         # ровно на кратность, и без него их результат остался бы только в памяти
         self._save_cache()
+        self._unify_client_qualifiers()
         logger.info(f"✅ Нормализация client+address завершена. Вызовов LLM: {self.stats['llm_calls']}")
+
+    def _unify_client_qualifiers(self):
+        """
+        Сводит написание client_qualifier к одному виду по всему кэшу.
+
+        Зачем: модель то ставит маркер формы, то нет — "ИП Марчукайтес" и
+        "Марчукайтес" на одном и том же доме. Замер 21.09.2026: из 17
+        противоречивых адресов 11 расходились ровно этим. Один дом из-за
+        такой ерунды дробится на два ключа.
+
+        Почему здесь, а не в реконсилере: шаг требует ВСЕГО набора значений,
+        а client_qualifier пока живёт только в кэше и до датафрейма не
+        доходит. Когда поле поедет в parquet, шаг переедет туда же.
+
+        Приставку НЕ дописываем от себя: берём то написание, которое уже
+        есть в данных. "Марчукайтес" -> "ИП Марчукайтес", потому что второй
+        вариант встречается рядом; а "Быков А.Д.", у которого близнеца с
+        маркером нет, остаётся как есть — выдумывать ему форму не на чем.
+        """
+        entries = self.cache.get("client_address", {})
+        marker = re.compile(r'^(ИП|ООО|ЗАО|ОАО|ПАО|АО)\s+', re.IGNORECASE)
+
+        # ключ сравнения — значение без маркера формы, регистра и ё
+        def bare(value: str) -> str:
+            return marker.sub('', value).strip().lower().replace('ё', 'е')
+
+        # Среди написаний одного и того же лица выбираем самое частое из тех,
+        # где маркер есть. Частота важна: если "ИП Иовлева" встречается 12
+        # раз, а "ООО Иовлева" один раз (опечатка модели), побеждает первое.
+        marked = Counter()
+        for entry in entries.values():
+            value = (entry.get("client_qualifier") or "").strip()
+            if value and marker.match(value):
+                marked[(bare(value), value)] += 1
+
+        canonical: Dict[str, str] = {}
+        for (key, value), count in marked.most_common():
+            canonical.setdefault(key, value)
+
+        changed = 0
+        for entry in entries.values():
+            value = (entry.get("client_qualifier") or "").strip()
+            if not value:
+                continue
+            target = canonical.get(bare(value))
+            if target and target != value:
+                entry["client_qualifier"] = target
+                changed += 1
+
+        if changed:
+            logger.info(f"🔗 Написание уточнения клиента сведено у {changed} пар")
+            self._save_cache()
 
     # =========================================================================
     # НОВОЕ: Слой 1 — детерминированный fuzzy-матч сырого текста с названиями
